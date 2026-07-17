@@ -30,15 +30,22 @@ class AppBillTransport
         }
 
         $company = Company::query()->findOrFail($event->company_id);
+        $timezone = in_array((string) $company->timezone, timezone_identifiers_list(), true)
+            ? (string) $company->timezone
+            : 'Asia/Jakarta';
         $isAttendance = Str::startsWith($event->event_type, ['attendance.', 'employee.']);
         $path = $isAttendance
             ? (string) ($settings['attendance_webhook_path'] ?? '/api/integrations/attendance/webhook')
             : (string) ($settings['payroll_endpoint_path'] ?? '/api/v1/integrations/appoems/payroll-periods');
         $payload = $isAttendance
             ? [
+                // Schema API tidak sama dengan version revisi record absensi.
+                'schema_version' => '1.0',
                 'event' => $event->event_type,
                 'event_id' => $event->event_id,
-                'occurred_at' => optional($event->created_at)->toIso8601String(),
+                // Event timestamp memakai timezone bisnis yang sama dengan
+                // data absensi, sedangkan storage internal boleh tetap UTC.
+                'occurred_at' => $event->created_at?->copy()->setTimezone($timezone)->toIso8601String(),
                 'company_code' => $company->code,
                 'data' => $event->payload,
             ]

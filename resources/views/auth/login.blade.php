@@ -8,7 +8,7 @@
 @section('title', 'Login')
 
 @section('vendor-style')
-  @vite(['resources/assets/vendor/libs/@form-validation/form-validation.scss'])
+
 @endsection
 
 @section('page-style')
@@ -16,7 +16,7 @@
 @endsection
 
 @section('vendor-script')
-  @vite(['resources/assets/vendor/libs/@form-validation/popular.js', 'resources/assets/vendor/libs/@form-validation/bootstrap5.js', 'resources/assets/vendor/libs/@form-validation/auto-focus.js'])
+  @vite(['resources/assets/vendor/libs/@form-validation/bootstrap5.js', 'resources/assets/vendor/libs/@form-validation/auto-focus.js'])
 @endsection
 
 @section('page-script')

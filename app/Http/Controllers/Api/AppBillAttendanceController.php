@@ -21,14 +21,14 @@ class AppBillAttendanceController extends Controller
     {
         $company = $this->company($request);
         $items = $this->service->employees($company, (int) $request->integer('per_page', 100));
-        return $this->paginated($items, fn ($employee) => $this->service->employeePayload($employee));
+        return $this->paginated($items, fn ($employee) => $this->service->employeePayload($employee), $company);
     }
 
     public function shifts(Request $request): JsonResponse
     {
         $company = $this->company($request);
         $items = $this->service->shifts($company, (int) $request->integer('per_page', 100));
-        return $this->paginated($items, fn ($shift) => $this->service->shiftPayload($shift, $company->timezone ?: 'Asia/Jakarta'));
+        return $this->paginated($items, fn ($shift) => $this->service->shiftPayload($shift, $company->timezone ?: 'Asia/Jakarta'), $company);
     }
 
     public function attendance(Request $request): JsonResponse
@@ -45,7 +45,7 @@ class AppBillAttendanceController extends Controller
             $validated['end_date'],
             (int) ($validated['per_page'] ?? 100)
         );
-        return $this->paginated($items, fn ($attendance) => $this->service->attendancePayload($attendance));
+        return $this->paginated($items, fn ($attendance) => $this->service->attendancePayload($attendance), $company);
     }
 
     public function showAttendance(Request $request, string $sourceRecordId): JsonResponse
@@ -55,7 +55,22 @@ class AppBillAttendanceController extends Controller
             ->where('company_id', $this->company($request)->id)
             ->where('source_record_id', $sourceRecordId)
             ->firstOrFail();
-        return response()->json(['success' => true, 'data' => $this->service->attendancePayload($attendance)]);
+        return response()->json([
+            'success' => true,
+            'data' => $this->service->attendancePayload($attendance),
+            'meta' => $this->contractMeta($this->company($request)),
+        ]);
+    }
+
+    /** Kontrak live yang dilindungi HMAC agar AppBill memakai schema resmi. */
+    public function attendanceContract(Request $request): JsonResponse
+    {
+        $company = $this->company($request);
+
+        return response()->json([
+            'success' => true,
+            'data' => $this->service->attendanceContract($company),
+        ]);
     }
 
     public function storeAttendance(Request $request): JsonResponse
@@ -66,11 +81,20 @@ class AppBillAttendanceController extends Controller
     public function updateAttendance(Request $request, string $sourceRecordId): JsonResponse
     {
         $data = $request->all();
-        $payload = $data['data'] ?? $data;
+        $hasEnvelope = array_key_exists('data', $data) && is_array($data['data']);
+        $payload = $hasEnvelope ? $data['data'] : $data;
         if (($payload['source_record_id'] ?? $sourceRecordId) !== $sourceRecordId) {
             throw ValidationException::withMessages(['source_record_id' => ['Tidak sama dengan source_record_id pada URL.']]);
         }
-        data_set($data, 'data.source_record_id', $sourceRecordId);
+
+        // AppBill boleh memakai payload langsung atau envelope {data:{...}}.
+        // Jangan mengubah payload langsung menjadi envelope parsial karena
+        // field absensi lain dapat hilang pada saat upsert.
+        if ($hasEnvelope) {
+            $data['data']['source_record_id'] = $sourceRecordId;
+        } else {
+            $data['source_record_id'] = $sourceRecordId;
+        }
         $request->replace($data);
         return $this->upsert($request);
     }
@@ -116,17 +140,25 @@ class AppBillAttendanceController extends Controller
         return $request->attributes->get('appbill.connection');
     }
 
-    private function paginated($paginator, callable $map): JsonResponse
+    private function paginated($paginator, callable $map, Company $company): JsonResponse
     {
         return response()->json([
             'success' => true,
             'data' => collect($paginator->items())->map($map)->values(),
-            'meta' => [
+            'meta' => array_merge([
                 'current_page' => $paginator->currentPage(),
                 'per_page' => $paginator->perPage(),
                 'total' => $paginator->total(),
                 'last_page' => $paginator->lastPage(),
-            ],
+            ], $this->contractMeta($company)),
         ]);
+    }
+
+    private function contractMeta(Company $company): array
+    {
+        return [
+            'schema_version' => '1.0',
+            'timezone' => $company->timezone ?: 'Asia/Jakarta',
+        ];
     }
 }

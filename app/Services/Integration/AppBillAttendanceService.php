@@ -28,7 +28,9 @@ class AppBillAttendanceService
             return;
         }
 
-        $attendance->loadMissing(['employee.division', 'shift']);
+        // Company wajib ikut dimuat supaya jam UTC internal dapat dikirim ke
+        // AppBill menggunakan timezone operasional perusahaan yang benar.
+        $attendance->loadMissing(['employee.division', 'employee.company', 'shift']);
         if (! $attendance->employee) {
             return;
         }
@@ -74,7 +76,7 @@ class AppBillAttendanceService
     public function attendances(Company $company, string $startDate, string $endDate, int $perPage): LengthAwarePaginator
     {
         return Attendance::query()
-            ->with(['employee.division', 'shift'])
+            ->with(['employee.division', 'employee.company', 'shift'])
             ->where('company_id', $company->id)
             ->whereBetween('date', [$startDate, $endDate])
             ->orderBy('date')
@@ -198,21 +200,55 @@ class AppBillAttendanceService
 
     public function attendancePayload(Attendance $attendance): array
     {
+        $timezone = $this->companyTimezone($attendance->employee?->company);
+
         return [
             'source_record_id' => $attendance->source_record_id,
             'employee_code' => $attendance->employee?->employee_no,
             'attendance_date' => optional($attendance->date)->toDateString(),
-            'check_in' => optional($attendance->clock_in_at)->toIso8601String(),
-            'check_out' => optional($attendance->clock_out_at)->toIso8601String(),
-            'status' => $attendance->status,
+            // Semua instant memakai ISO-8601 dengan offset timezone company,
+            // bukan UTC tersembunyi yang dapat menggeser tanggal absensi.
+            'check_in' => $this->formatTimestamp($attendance->clock_in_at, $timezone),
+            'check_out' => $this->formatTimestamp($attendance->clock_out_at, $timezone),
+            'status' => $this->canonicalAttendanceStatus($attendance->status),
             'late_minutes' => $this->lateMinutes($attendance),
             'work_minutes' => $this->workMinutes($attendance),
             'shift_code' => $attendance->shift?->code,
-            'timezone' => $attendance->employee?->company?->timezone ?? 'Asia/Jakarta',
-            'approval_status' => $attendance->approval_status ?? 'approved',
+            'timezone' => $timezone,
+            'approval_status' => $this->canonicalApprovalStatus($attendance->approval_status),
+            // version adalah revision number record. AppBill harus mengabaikan
+            // event dengan version <= data yang telah diproses sebelumnya.
             'version' => max(1, (int) ($attendance->sync_version ?? 1)),
-            'updated_at' => optional($attendance->sync_updated_at ?: $attendance->updated_at)->toIso8601String(),
+            'updated_at' => $this->formatTimestamp($attendance->sync_updated_at ?: $attendance->updated_at, $timezone),
             'is_cancelled' => (bool) $attendance->is_cancelled,
+            'change_reason' => $attendance->change_reason,
+        ];
+    }
+
+    /**
+     * Kontrak ringkas yang dapat dibaca mesin AppBill. Dokumen Markdown tetap
+     * menjadi referensi human-readable, sedangkan endpoint ini menghindarkan
+     * kedua tim memakai contoh payload yang sudah kedaluwarsa.
+     */
+    public function attendanceContract(Company $company): array
+    {
+        $timezone = $this->companyTimezone($company);
+
+        return [
+            'schema_version' => '1.0',
+            'source' => 'appoems',
+            'timezone' => $timezone,
+            'timestamp_format' => 'ISO-8601/RFC3339 dengan UTC offset, contoh 2026-07-18T08:15:00+07:00',
+            'attendance_date_rule' => 'Tanggal kalender lokal pada timezone perusahaan, format YYYY-MM-DD.',
+            'attendance_statuses' => $this->attendanceStatuses(),
+            'approval_statuses' => $this->approvalStatuses(),
+            'record_version_rule' => 'Integer naik setiap record berubah. Penerima wajib memakai source_record_id + version untuk idempotensi.',
+            'webhook_events' => ['attendance.created', 'attendance.updated'],
+            'endpoints' => [
+                'employees' => '/api/v1/integrations/appbill/employees',
+                'shifts' => '/api/v1/integrations/appbill/shifts',
+                'attendance' => '/api/v1/integrations/appbill/attendance?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD',
+            ],
         ];
     }
 
@@ -234,8 +270,8 @@ class AppBillAttendanceService
 
     private function validateInboundPayload(array $data): array
     {
-        $allowedStatuses = ['present', 'late', 'absent', 'leave', 'sick', 'permission', 'holiday', 'off', 'incomplete'];
-        $approvalStatuses = ['draft', 'submitted', 'approved', 'rejected', 'corrected'];
+        $allowedStatuses = $this->attendanceStatuses();
+        $approvalStatuses = $this->approvalStatuses();
         $validator = validator($data, [
             'source_record_id' => ['required', 'string', 'max:120'],
             'employee_code' => ['required', 'string', 'max:100'],
@@ -307,5 +343,46 @@ class AppBillAttendanceService
         return $attendance->clock_in_at->greaterThan($expected)
             ? $expected->diffInMinutes($attendance->clock_in_at)
             : 0;
+    }
+
+    private function companyTimezone(?Company $company): string
+    {
+        $timezone = (string) ($company?->timezone ?: 'Asia/Jakarta');
+
+        return in_array($timezone, timezone_identifiers_list(), true) ? $timezone : 'Asia/Jakarta';
+    }
+
+    private function formatTimestamp(?Carbon $value, string $timezone): ?string
+    {
+        return $value?->copy()->setTimezone($timezone)->toIso8601String();
+    }
+
+    private function attendanceStatuses(): array
+    {
+        return ['present', 'late', 'absent', 'leave', 'sick', 'permission', 'holiday', 'off', 'incomplete'];
+    }
+
+    private function approvalStatuses(): array
+    {
+        return ['draft', 'submitted', 'approved', 'rejected', 'corrected'];
+    }
+
+    private function canonicalAttendanceStatus(?string $status): string
+    {
+        $normalized = strtolower(trim((string) $status));
+        $aliases = [
+            'hadir' => 'present', 'terlambat' => 'late', 'alpa' => 'absent',
+            'cuti' => 'leave', 'izin' => 'permission', 'libur' => 'holiday',
+        ];
+        $normalized = $aliases[$normalized] ?? $normalized;
+
+        return in_array($normalized, $this->attendanceStatuses(), true) ? $normalized : 'incomplete';
+    }
+
+    private function canonicalApprovalStatus(?string $status): string
+    {
+        $normalized = strtolower(trim((string) ($status ?: 'approved')));
+
+        return in_array($normalized, $this->approvalStatuses(), true) ? $normalized : 'draft';
     }
 }

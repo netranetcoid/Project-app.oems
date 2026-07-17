@@ -20,6 +20,8 @@ Route::get('/mobile/release/check', [MobileReleaseController::class, 'check'])->
 Route::prefix('integrations/appbill')
     ->middleware(['appbill.integration', 'throttle:120,1'])
     ->group(function (): void {
+        // Machine-readable contract; protected by the same AppBill HMAC.
+        Route::get('/attendance-contract', [AppBillAttendanceController::class, 'attendanceContract']);
         Route::get('/employees', [AppBillAttendanceController::class, 'employees']);
         Route::get('/shifts', [AppBillAttendanceController::class, 'shifts']);
         Route::get('/attendance', [AppBillAttendanceController::class, 'attendance']);
