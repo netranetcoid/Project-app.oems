@@ -13,6 +13,10 @@ use Throwable;
 
 class AppBillIntegrationService
 {
+    public function __construct(private AppBillTransport $transport)
+    {
+    }
+
     public function connection(int $companyId): IntegrationConnection
     {
         return IntegrationConnection::firstOrCreate(
@@ -157,10 +161,20 @@ class AppBillIntegrationService
                 throw new RuntimeException('Koneksi outbound AppBill sedang dinonaktifkan.');
             }
 
-            if ($connection->mode !== 'mock') {
-                // Guardrail tegas: tidak ada request jaringan sebelum API,
-                // signature, IP allowlist dan cutover disetujui owner.
-                throw new RuntimeException('Transport AppBill live belum diaktifkan oleh owner.');
+            if ($connection->mode === 'mock') {
+                $delivery = [
+                    'status' => 202,
+                    'summary' => [
+                        'code' => 'MOCK_ACCEPTED',
+                        'message' => 'Dummy AppBill menerima event tanpa koneksi jaringan.',
+                    ],
+                ];
+            } elseif ($connection->mode === 'live') {
+                // Transport baru boleh aktif melalui konfigurasi owner dengan
+                // HTTPS, token, HMAC, URL, dan tanggal cutover yang lengkap.
+                $delivery = $this->transport->deliver($connection, $event);
+            } else {
+                throw new RuntimeException('Mode koneksi AppBill tidak dikenal.');
             }
 
             $event->update([
@@ -168,11 +182,8 @@ class AppBillIntegrationService
                 'sent_at' => now(),
                 'locked_at' => null,
                 'next_retry_at' => null,
-                'response_status' => 202,
-                'response_summary' => [
-                    'code' => 'MOCK_ACCEPTED',
-                    'message' => 'Dummy AppBill menerima event tanpa koneksi jaringan.',
-                ],
+                'response_status' => $delivery['status'],
+                'response_summary' => $delivery['summary'],
             ]);
             $connection->update(['health_status' => 'ready', 'last_success_at' => now()]);
         } catch (Throwable $exception) {
@@ -229,4 +240,3 @@ class AppBillIntegrationService
         return $event->fresh();
     }
 }
-

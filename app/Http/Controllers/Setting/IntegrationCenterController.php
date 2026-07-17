@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\IntegrationConnection;
 use App\Models\IntegrationOutbox;
 use App\Models\SystemHealthSnapshot;
+use App\Models\Company;
 use App\Services\Integration\AppBillIntegrationService;
 use App\Services\Observability\SystemHealthService;
 use Illuminate\Http\RedirectResponse;
@@ -79,26 +80,70 @@ class IntegrationCenterController extends Controller
     {
         $this->ensureCompany($connection);
         $data = $request->validate([
+            'mode' => ['required', 'in:mock,live'],
+            'base_url' => ['nullable', 'url', 'max:500'],
+            'api_token' => ['nullable', 'string', 'max:500'],
+            'hmac_secret' => ['nullable', 'string', 'max:500'],
+            'attendance_webhook_path' => ['nullable', 'string', 'max:255', 'regex:/^\\//'],
+            'payroll_endpoint_path' => ['nullable', 'string', 'max:255', 'regex:/^\\//'],
+            'allow_inbound' => ['nullable', 'boolean'],
+            'allow_outbound' => ['nullable', 'boolean'],
+            'confirm_live' => ['nullable', 'boolean'],
             'is_enabled' => ['nullable', 'boolean'],
             'cutover_at' => ['nullable', 'date'],
             'timeout_seconds' => ['required', 'integer', 'between:1,60'],
             'retry_limit' => ['required', 'integer', 'between:1,10'],
         ]);
 
-        // Mode live tidak tersedia di form. API asli baru dapat diaktifkan
-        // setelah endpoint, signature, allowlist dan cutover disetujui owner.
+        $company = Company::query()->findOrFail($connection->company_id);
+        $credentials = $connection->credentials ?? [];
+        if (filled($data['api_token'] ?? null)) {
+            $credentials['api_token'] = $data['api_token'];
+        }
+        if (filled($data['hmac_secret'] ?? null)) {
+            $credentials['hmac_secret'] = $data['hmac_secret'];
+        }
+
+        $mode = $data['mode'];
+        if ($mode === 'live') {
+            // Guardrail owner: request jaringan nyata hanya boleh aktif bila
+            // endpoint, token, signature, dan cutover telah disetujui.
+            abort_unless($request->user()->is_owner || $request->user()->is_super_admin, 403);
+            if (! $request->boolean('confirm_live') || blank($data['base_url'] ?? $connection->base_url) || blank($credentials['api_token'] ?? null) || blank($credentials['hmac_secret'] ?? null)) {
+                return back()->withErrors(['mode' => 'Mode live memerlukan URL HTTPS, token, HMAC secret, dan konfirmasi owner.'])->withInput();
+            }
+            if (parse_url((string) ($data['base_url'] ?? $connection->base_url), PHP_URL_SCHEME) !== 'https') {
+                return back()->withErrors(['base_url' => 'Endpoint AppBill live wajib memakai HTTPS.'])->withInput();
+            }
+        }
+
+        $existingSettings = $connection->settings ?? [];
+        $settings = array_merge($existingSettings, [
+            'company_code' => $company->code,
+            'attendance_webhook_path' => $data['attendance_webhook_path'] ?: ($existingSettings['attendance_webhook_path'] ?? '/api/integrations/attendance/webhook'),
+            'payroll_endpoint_path' => $data['payroll_endpoint_path'] ?: ($existingSettings['payroll_endpoint_path'] ?? '/api/v1/integrations/appoems/payroll-periods'),
+            'dummy_only' => $mode === 'mock',
+            'live_activation_confirmed' => $mode === 'live',
+        ]);
+
         $connection->update([
-            'mode' => 'mock',
-            'base_url' => null,
-            'auth_type' => 'none',
+            'mode' => $mode,
+            'base_url' => $data['base_url'] ?: $connection->base_url,
+            'auth_type' => $mode === 'live' ? 'bearer_hmac' : 'none',
+            'credentials' => $credentials,
             'is_enabled' => $request->boolean('is_enabled'),
+            'allow_inbound' => $request->boolean('allow_inbound'),
+            'allow_outbound' => $request->boolean('allow_outbound'),
             'cutover_at' => $data['cutover_at'] ?? null,
             'timeout_seconds' => $data['timeout_seconds'],
             'retry_limit' => $data['retry_limit'],
-            'health_status' => 'ready',
+            'settings' => $settings,
+            'health_status' => $mode === 'live' ? 'not_configured' : 'ready',
         ]);
 
-        return back()->with('success', 'Konfigurasi dummy AppBill diperbarui. Mode live tetap terkunci.');
+        return back()->with('success', $mode === 'live'
+            ? 'Konfigurasi live AppBill tersimpan. Jalankan uji staging sebelum cutover.'
+            : 'Konfigurasi dummy AppBill diperbarui; tidak ada data keluar ke jaringan.');
     }
 
     public function queueTest(Request $request): RedirectResponse
@@ -138,4 +183,3 @@ class IntegrationCenterController extends Controller
         abort_if((int) $connection->company_id !== (int) session('company_id'), 403);
     }
 }
-

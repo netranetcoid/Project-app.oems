@@ -61,6 +61,38 @@
             <input class="form-control" value="AppBill — Dummy Adapter" disabled>
           </div>
           <div class="col-md-6">
+            <label class="form-label">Mode koneksi</label>
+            <select class="form-select" name="mode" id="appBillMode">
+              <option value="mock" @selected(old('mode',$connection->mode) === 'mock')>Mock / Dummy aman</option>
+              <option value="live" @selected(old('mode',$connection->mode) === 'live')>Live AppBill (owner)</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Company code</label>
+            <input class="form-control" value="{{ data_get($connection->settings,'company_code',session('company_code') ?: 'OEMS') }}" disabled>
+            <div class="form-text">Dikirim pada header <code>X-Company-Code</code>.</div>
+          </div>
+          <div class="col-12 appbill-live-field">
+            <label class="form-label">Base URL AppBill</label>
+            <input class="form-control" type="url" name="base_url" value="{{ old('base_url',$connection->base_url) }}" placeholder="https://staging.appbill.example">
+          </div>
+          <div class="col-md-6 appbill-live-field">
+            <label class="form-label">API token</label>
+            <input class="form-control" type="password" name="api_token" autocomplete="new-password" placeholder="Kosongkan untuk mempertahankan token lama">
+          </div>
+          <div class="col-md-6 appbill-live-field">
+            <label class="form-label">HMAC secret</label>
+            <input class="form-control" type="password" name="hmac_secret" autocomplete="new-password" placeholder="Kosongkan untuk mempertahankan secret lama">
+          </div>
+          <div class="col-md-6 appbill-live-field">
+            <label class="form-label">Path webhook absensi</label>
+            <input class="form-control" name="attendance_webhook_path" value="{{ old('attendance_webhook_path',data_get($connection->settings,'attendance_webhook_path','/api/integrations/attendance/webhook')) }}">
+          </div>
+          <div class="col-md-6 appbill-live-field">
+            <label class="form-label">Path endpoint payroll</label>
+            <input class="form-control" name="payroll_endpoint_path" value="{{ old('payroll_endpoint_path',data_get($connection->settings,'payroll_endpoint_path','/api/v1/integrations/appoems/payroll-periods')) }}">
+          </div>
+          <div class="col-md-6">
             <label class="form-label">Timeout (detik)</label>
             <input class="form-control" type="number" min="1" max="60" name="timeout_seconds" value="{{ old('timeout_seconds',$connection->timeout_seconds) }}" required>
           </div>
@@ -77,6 +109,26 @@
             <div class="form-check form-switch">
               <input class="form-check-input" type="checkbox" name="is_enabled" value="1" id="connectionEnabled" @checked($connection->is_enabled)>
               <label class="form-check-label" for="connectionEnabled">Aktifkan simulasi outbound</label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <input type="hidden" name="allow_outbound" value="0">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="allow_outbound" value="1" id="allowOutbound" @checked(old('allow_outbound',$connection->allow_outbound))>
+              <label class="form-check-label" for="allowOutbound">Izinkan AppOEMS mengirim event</label>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <input type="hidden" name="allow_inbound" value="0">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="allow_inbound" value="1" id="allowInbound" @checked(old('allow_inbound',$connection->allow_inbound))>
+              <label class="form-check-label" for="allowInbound">Izinkan AppBill kirim perubahan</label>
+            </div>
+          </div>
+          <div class="col-12 appbill-live-field">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="confirm_live" value="1" id="confirmLive" @checked(old('confirm_live',false))>
+              <label class="form-check-label" for="confirmLive">Saya owner menyetujui endpoint, token, HMAC, allowlist, dan cutover live.</label>
             </div>
           </div>
           <div class="col-12 d-flex flex-wrap gap-2">
@@ -171,3 +223,14 @@
 @endcan
 @endsection
 
+@section('page-script')
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const mode = document.getElementById('appBillMode');
+    const fields = document.querySelectorAll('.appbill-live-field');
+    const refresh = () => fields.forEach((field) => field.classList.toggle('d-none', mode.value !== 'live'));
+    mode?.addEventListener('change', refresh);
+    refresh();
+  });
+</script>
+@endsection

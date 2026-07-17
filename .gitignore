@@ -44,3 +44,9 @@ yarn-error.log
 !/resources/assets/vendor/js/template-customizer.js
 
 .env
+
+# Local backup files
+*.codex-backup-*
+# Laravel generated views
+/storage/framework/views/*
+!/storage/framework/views/.gitignore

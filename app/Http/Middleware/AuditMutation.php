@@ -26,7 +26,7 @@ class AuditMutation
         }
 
         try {
-            if (! Schema::hasTable('audit_logs')) {
+            if (! Schema::hasTable('audit_logs') || ! $this->shouldPersistAudit($request, $response)) {
                 return $response;
             }
 
@@ -77,5 +77,51 @@ class AuditMutation
 
         return $response;
     }
-}
 
+    /**
+     * Menjaga database VPS tetap ringan. Presensi dan pengajuan rutin telah
+     * mempunyai tabel bisnis sendiri, sehingga audit duplikatnya tidak perlu
+     * ditulis per klik. Aksi legal, finansial, akses, serta integrasi tetap
+     * dicatat ketika AUDIT_MODE=critical (default produksi).
+     */
+    private function shouldPersistAudit(Request $request, Response $response): bool
+    {
+        $mode = strtolower((string) config('observability.audit_mode', 'critical'));
+        if ($mode === 'off') {
+            return false;
+        }
+
+        if ($mode === 'all') {
+            return true;
+        }
+
+        // Semua error server tetap memiliki jejak ringkas untuk investigasi.
+        if ($response->getStatusCode() >= 500) {
+            return true;
+        }
+
+        $routeName = strtolower((string) $request->route()?->getName());
+        $criticalPrefixes = [
+            'hr.payroll.',
+            'hr.contract',
+            'kpi.',
+            'settings.integration',
+            'settings.user',
+            'settings.role',
+            'settings.permission',
+            'settings.mobile-release',
+            'settings.company',
+            'employees.',
+            'users.',
+        ];
+
+        foreach ($criticalPrefixes as $prefix) {
+            if (str_starts_with($routeName, $prefix)) {
+                return true;
+            }
+        }
+
+        // Endpoint AppBill memerlukan jejak integrasi, walau dipanggil API.
+        return $request->is('api/v1/integrations/*');
+    }
+}

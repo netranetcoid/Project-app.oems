@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use App\Services\MenuService;
+use App\Models\Attendance;
+use App\Models\Employee;
+use App\Observers\AttendanceObserver;
+use App\Observers\EmployeeObserver;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
@@ -22,6 +26,11 @@ class AppServiceProvider extends ServiceProvider
 
   public function boot(): void
   {
+    // Observer hanya memasukkan event ke outbox terenkripsi. HTTP AppBill
+    // tetap diproses scheduler agar input absensi mobile tidak melambat.
+    Attendance::observe(AttendanceObserver::class);
+    Employee::observe(EmployeeObserver::class);
+
     RateLimiter::for('login', function (Request $request): Limit {
       $identity = Str::lower((string) (
         $request->input('login')

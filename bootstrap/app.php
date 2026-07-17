@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureCompanySelected;
 use App\Http\Middleware\SetPermissionCompanyContext;
 use App\Http\Middleware\AuditMutation;
+use App\Http\Middleware\EnsureAppBillIntegrationRequest;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -26,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
       'company.selected' => EnsureCompanySelected::class,
       'permission.company.context' => SetPermissionCompanyContext::class,
       'audit.mutation' => AuditMutation::class,
+      'appbill.integration' => EnsureAppBillIntegrationRequest::class,
 
       'role' => RoleMiddleware::class,
       'permission' => PermissionMiddleware::class,
@@ -52,6 +54,9 @@ return Application::configure(basePath: dirname(__DIR__))
   ->withSchedule(function (Schedule $schedule): void {
     // Bukti selfie/GPS dipurge harian; rekap absensi tidak dihapus.
     $schedule->command('attendance:purge-proofs')->dailyAt('02:15');
+    // Pembersihan log dilakukan di luar jam kerja; payroll dan kegagalan
+    // integrasi tidak termasuk pembersihan otomatis.
+    $schedule->command('observability:prune')->dailyAt('03:10')->withoutOverlapping();
     // Outbox idempotent aman dijalankan berulang. Selama mode mock tidak ada
     // request yang keluar ke AppBill atau internet.
     $schedule->command('integration:dispatch-outbox --limit=50')->everyMinute()->withoutOverlapping();
