@@ -50,3 +50,6 @@ yarn-error.log
 # Laravel generated views
 /storage/framework/views/*
 !/storage/framework/views/.gitignore
+
+# Windows shortcut files
+*.lnk
