@@ -1,0 +1,51 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+
+class BranchSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $company = DB::table('companies')
+            ->where('code', 'OEMS')
+            ->first();
+
+        if (!$company) {
+            return;
+        }
+
+        DB::table('branches')->updateOrInsert(
+
+            [
+                'company_id' => $company->id,
+                'code' => 'HO',
+            ],
+
+            [
+
+                'name' => 'Head Office',
+
+                'type' => 'head_office',
+
+                'email' => 'developer@oems.local',
+
+                'phone' => '021000000',
+
+                'timezone' => 'Asia/Jakarta',
+
+                'attendance_radius_meter' => 100,
+
+                'status' => 'active',
+
+                'created_at' => now(),
+
+                'updated_at' => now(),
+
+            ]
+
+        );
+    }
+}

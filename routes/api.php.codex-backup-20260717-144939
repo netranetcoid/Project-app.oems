@@ -1,0 +1,28 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\EmployeeHomeController;
+use App\Http\Controllers\Api\EmployeeRequestController;
+use App\Http\Controllers\Api\PayrollController;
+
+// Route untuk akses publik (tidak perlu login)
+// Endpoint versi; alias /login dipertahankan untuk klien lama.
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+
+// Route yang butuh login (semuanya masuk ke middleware yang sama)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/auth/refresh', [AuthController::class, 'refresh']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn']);
+    Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut']);
+    Route::get('/attendance/today', [AttendanceController::class, 'today']);
+    Route::get('/employee/me/home', EmployeeHomeController::class);
+    Route::get('/requests', [EmployeeRequestController::class, 'index']);
+    Route::post('/requests', [EmployeeRequestController::class, 'store']);
+    Route::get('/payrolls', [PayrollController::class, 'index']);
+    Route::get('/payrolls/{slip}', [PayrollController::class, 'show']);
+    Route::get('/payrolls/{slip}/payslip', [PayrollController::class, 'payslip']);
+});

@@ -1,0 +1,217 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+class MenuRolePermissionFixSeeder extends Seeder
+{
+  public function run(): void
+  {
+    if (!Schema::hasTable('menus')) {
+      $this->command?->error('Tabel menus belum ada.');
+      return;
+    }
+
+    $columns = Schema::getColumnListing('menus');
+    $now = now();
+
+    $moduleId = $this->resolveModuleId($columns);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Parent Settings
+    |--------------------------------------------------------------------------
+    */
+
+    $settings = DB::table('menus')
+      ->where('code', 'settings')
+      ->orWhere('name', 'Settings')
+      ->orWhere('route_name', 'settings')
+      ->first();
+
+    if (!$settings) {
+      $parentPayload = [];
+
+      $this->put($parentPayload, $columns, 'module_id', $moduleId);
+      $this->put($parentPayload, $columns, 'parent_id', null);
+      $this->put($parentPayload, $columns, 'code', 'settings');
+      $this->put($parentPayload, $columns, 'name', 'Settings');
+      $this->put($parentPayload, $columns, 'label', 'Settings');
+      $this->put($parentPayload, $columns, 'type', 'menu');
+      $this->put($parentPayload, $columns, 'icon', 'menu-icon tf-icons ri ri-settings-3-line icon-18px');
+      $this->put($parentPayload, $columns, 'url', '');
+      $this->put($parentPayload, $columns, 'route_name', '');
+      $this->put($parentPayload, $columns, 'permission_name', '');
+      $this->put($parentPayload, $columns, 'target', '');
+      $this->put($parentPayload, $columns, 'badge_text', '');
+      $this->put($parentPayload, $columns, 'badge_color', '');
+      $this->put($parentPayload, $columns, 'sort_order', 90);
+      $this->put($parentPayload, $columns, 'level', 0);
+      $this->put($parentPayload, $columns, 'is_active', 1);
+      $this->put($parentPayload, $columns, 'is_visible', 1);
+      $this->put($parentPayload, $columns, 'is_system', 1);
+      $this->put($parentPayload, $columns, 'open_in_new_tab', 0);
+      $this->put($parentPayload, $columns, 'meta', null);
+      $this->put($parentPayload, $columns, 'settings', null);
+      $this->put($parentPayload, $columns, 'deleted_at', null);
+      $this->put($parentPayload, $columns, 'created_at', $now);
+      $this->put($parentPayload, $columns, 'updated_at', $now);
+
+      $settingsId = DB::table('menus')->insertGetId($parentPayload);
+
+      $settings = DB::table('menus')->where('id', $settingsId)->first();
+    } else {
+      $settingsId = (int) $settings->id;
+
+      $updateParent = [];
+
+      $this->put($updateParent, $columns, 'module_id', $settings->module_id ?? $moduleId);
+      $this->put($updateParent, $columns, 'parent_id', null);
+      $this->put($updateParent, $columns, 'code', 'settings');
+      $this->put($updateParent, $columns, 'name', 'Settings');
+      $this->put($updateParent, $columns, 'label', 'Settings');
+      $this->put($updateParent, $columns, 'type', 'menu');
+      $this->put($updateParent, $columns, 'icon', 'menu-icon tf-icons ri ri-settings-3-line icon-18px');
+      $this->put($updateParent, $columns, 'url', '');
+      $this->put($updateParent, $columns, 'route_name', '');
+      $this->put($updateParent, $columns, 'permission_name', '');
+      $this->put($updateParent, $columns, 'target', '');
+      $this->put($updateParent, $columns, 'sort_order', 90);
+      $this->put($updateParent, $columns, 'level', 0);
+      $this->put($updateParent, $columns, 'is_active', 1);
+      $this->put($updateParent, $columns, 'is_visible', 1);
+      $this->put($updateParent, $columns, 'is_system', 1);
+      $this->put($updateParent, $columns, 'open_in_new_tab', 0);
+      $this->put($updateParent, $columns, 'deleted_at', null);
+      $this->put($updateParent, $columns, 'updated_at', $now);
+
+      DB::table('menus')
+        ->where('id', $settingsId)
+        ->update($updateParent);
+
+      $settings = DB::table('menus')->where('id', $settingsId)->first();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Child Role Permission
+    |--------------------------------------------------------------------------
+    */
+
+    $rolePermissionPayload = [];
+
+    $this->put($rolePermissionPayload, $columns, 'module_id', $settings->module_id ?? $moduleId);
+    $this->put($rolePermissionPayload, $columns, 'parent_id', $settingsId);
+    $this->put($rolePermissionPayload, $columns, 'code', 'settings.role-permission');
+    $this->put($rolePermissionPayload, $columns, 'name', 'Role Permission');
+    $this->put($rolePermissionPayload, $columns, 'label', 'Role Permission');
+    $this->put($rolePermissionPayload, $columns, 'type', 'link');
+    $this->put($rolePermissionPayload, $columns, 'icon', 'menu-icon tf-icons ri ri-shield-keyhole-line icon-18px');
+    $this->put($rolePermissionPayload, $columns, 'url', 'settings/role-permission');
+    $this->put($rolePermissionPayload, $columns, 'route_name', 'settings.role-permission.index');
+    $this->put($rolePermissionPayload, $columns, 'permission_name', 'role.view');
+    $this->put($rolePermissionPayload, $columns, 'target', '');
+    $this->put($rolePermissionPayload, $columns, 'badge_text', '');
+    $this->put($rolePermissionPayload, $columns, 'badge_color', '');
+    $this->put($rolePermissionPayload, $columns, 'sort_order', 20);
+    $this->put($rolePermissionPayload, $columns, 'level', 1);
+    $this->put($rolePermissionPayload, $columns, 'is_active', 1);
+    $this->put($rolePermissionPayload, $columns, 'is_visible', 1);
+    $this->put($rolePermissionPayload, $columns, 'is_system', 1);
+    $this->put($rolePermissionPayload, $columns, 'open_in_new_tab', 0);
+    $this->put($rolePermissionPayload, $columns, 'meta', null);
+    $this->put($rolePermissionPayload, $columns, 'settings', null);
+    $this->put($rolePermissionPayload, $columns, 'deleted_at', null);
+    $this->put($rolePermissionPayload, $columns, 'created_at', $now);
+    $this->put($rolePermissionPayload, $columns, 'updated_at', $now);
+
+    $existingRolePermission = DB::table('menus')
+      ->where('code', 'settings.role-permission')
+      ->first();
+
+    if ($existingRolePermission) {
+      unset($rolePermissionPayload['created_at']);
+
+      DB::table('menus')
+        ->where('id', $existingRolePermission->id)
+        ->update($rolePermissionPayload);
+    } else {
+      DB::table('menus')->insert($rolePermissionPayload);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Optional: User Access child
+    |--------------------------------------------------------------------------
+    */
+
+    $userAccessPayload = [];
+
+    $this->put($userAccessPayload, $columns, 'module_id', $settings->module_id ?? $moduleId);
+    $this->put($userAccessPayload, $columns, 'parent_id', $settingsId);
+    $this->put($userAccessPayload, $columns, 'code', 'settings.user-access');
+    $this->put($userAccessPayload, $columns, 'name', 'User Access');
+    $this->put($userAccessPayload, $columns, 'label', 'User Access');
+    $this->put($userAccessPayload, $columns, 'type', 'link');
+    $this->put($userAccessPayload, $columns, 'icon', 'menu-icon tf-icons ri ri-user-settings-line icon-18px');
+    $this->put($userAccessPayload, $columns, 'url', 'settings/user-access');
+    $this->put($userAccessPayload, $columns, 'route_name', 'settings.user-access.index');
+    $this->put($userAccessPayload, $columns, 'permission_name', 'user.view');
+    $this->put($userAccessPayload, $columns, 'target', '');
+    $this->put($userAccessPayload, $columns, 'badge_text', '');
+    $this->put($userAccessPayload, $columns, 'badge_color', '');
+    $this->put($userAccessPayload, $columns, 'sort_order', 10);
+    $this->put($userAccessPayload, $columns, 'level', 1);
+    $this->put($userAccessPayload, $columns, 'is_active', 1);
+    $this->put($userAccessPayload, $columns, 'is_visible', 1);
+    $this->put($userAccessPayload, $columns, 'is_system', 1);
+    $this->put($userAccessPayload, $columns, 'open_in_new_tab', 0);
+    $this->put($userAccessPayload, $columns, 'meta', null);
+    $this->put($userAccessPayload, $columns, 'settings', null);
+    $this->put($userAccessPayload, $columns, 'deleted_at', null);
+    $this->put($userAccessPayload, $columns, 'created_at', $now);
+    $this->put($userAccessPayload, $columns, 'updated_at', $now);
+
+    $existingUserAccess = DB::table('menus')
+      ->where('code', 'settings.user-access')
+      ->first();
+
+    if ($existingUserAccess) {
+      unset($userAccessPayload['created_at']);
+
+      DB::table('menus')
+        ->where('id', $existingUserAccess->id)
+        ->update($userAccessPayload);
+    } else {
+      DB::table('menus')->insert($userAccessPayload);
+    }
+
+    $this->command?->info('Menu Settings, User Access, dan Role Permission berhasil dibuat / diperbarui.');
+  }
+
+  private function resolveModuleId(array $menuColumns): ?int
+  {
+    if (!in_array('module_id', $menuColumns, true)) {
+      return null;
+    }
+
+    if (!Schema::hasTable('modules')) {
+      return null;
+    }
+
+    return DB::table('modules')->where('code', 'settings')->value('id')
+      ?? DB::table('modules')->where('code', 'system')->value('id')
+      ?? DB::table('modules')->where('code', 'core')->value('id')
+      ?? DB::table('modules')->value('id');
+  }
+
+  private function put(array &$payload, array $columns, string $key, mixed $value): void
+  {
+    if (in_array($key, $columns, true)) {
+      $payload[$key] = $value;
+    }
+  }
+}

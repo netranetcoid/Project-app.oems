@@ -1,0 +1,173 @@
+@extends('layouts/layoutMaster')
+
+@section('title', 'Integrasi & Audit Sistem')
+
+@section('content')
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <h4 class="mb-1">Integrasi & Audit Sistem</h4>
+    <p class="text-muted mb-0">Pusat dummy AppBill, antrean aman, audit aktivitas, dan kesehatan AppOEMS.</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    @can('health.view')
+      <form method="POST" action="{{ route('settings.integrations.health') }}">@csrf
+        <button class="btn btn-label-info"><i class="ri ri-pulse-line me-1"></i>Periksa Sistem</button>
+      </form>
+    @endcan
+    @can('integration.dispatch')
+      <form method="POST" action="{{ route('settings.integrations.dispatch') }}">@csrf
+        <button class="btn btn-primary"><i class="ri ri-play-circle-line me-1"></i>Proses Antrean</button>
+      </form>
+    @endcan
+  </div>
+</div>
+
+@if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+@if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
+@if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
+
+<div class="alert alert-primary d-flex align-items-start gap-3">
+  <i class="ri ri-shield-check-line fs-4"></i>
+  <div><strong>Mode dummy aman sedang aktif.</strong><br><span class="small">Tidak ada data yang dikirim ke internet. Mode live dikunci sampai API, signature, IP allowlist, dan tanggal cutover disetujui owner.</span></div>
+</div>
+
+<div class="row g-4 mb-4">
+  @foreach([
+    ['Antrean', $stats['pending'], 'warning', 'ri-time-line'],
+    ['Terkirim Mock', $stats['sent'], 'success', 'ri-checkbox-circle-line'],
+    ['Perlu Tindakan', $stats['dead'], 'danger', 'ri-error-warning-line'],
+    ['Audit Hari Ini', $stats['audit_today'], 'info', 'ri-history-line'],
+  ] as [$label,$value,$color,$icon])
+  <div class="col-6 col-xl-3"><div class="card h-100"><div class="card-body d-flex align-items-center gap-3">
+    <span class="avatar-initial rounded bg-label-{{ $color }} p-3"><i class="ri {{ $icon }} fs-4"></i></span>
+    <div><div class="text-muted small">{{ $label }}</div><h4 class="mb-0">{{ number_format($value) }}</h4></div>
+  </div></div></div>
+  @endforeach
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-xl-5">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <div><h5 class="mb-1">Koneksi AppBill</h5><small class="text-muted">Konfigurasi dapat diedit tanpa membuka akses live.</small></div>
+        <span class="badge bg-label-primary">{{ strtoupper($connection->mode) }}</span>
+      </div>
+      <div class="card-body">
+        @can('integration.manage')
+        <form method="POST" action="{{ route('settings.integrations.update', $connection) }}" class="row g-3">
+          @csrf @method('PUT')
+          <div class="col-12">
+            <label class="form-label">Provider</label>
+            <input class="form-control" value="AppBill — Dummy Adapter" disabled>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Timeout (detik)</label>
+            <input class="form-control" type="number" min="1" max="60" name="timeout_seconds" value="{{ old('timeout_seconds',$connection->timeout_seconds) }}" required>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Maksimal percobaan</label>
+            <input class="form-control" type="number" min="1" max="10" name="retry_limit" value="{{ old('retry_limit',$connection->retry_limit) }}" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Rencana cutover <span class="text-muted">(opsional)</span></label>
+            <input class="form-control" type="datetime-local" name="cutover_at" value="{{ old('cutover_at',$connection->cutover_at?->format('Y-m-d\TH:i')) }}">
+          </div>
+          <div class="col-12">
+            <input type="hidden" name="is_enabled" value="0">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="is_enabled" value="1" id="connectionEnabled" @checked($connection->is_enabled)>
+              <label class="form-check-label" for="connectionEnabled">Aktifkan simulasi outbound</label>
+            </div>
+          </div>
+          <div class="col-12 d-flex flex-wrap gap-2">
+            <button class="btn btn-primary">Simpan Pengaturan</button>
+          </div>
+        </form>
+        @endcan
+
+        @can('integration.dispatch')
+        <hr>
+        <form method="POST" action="{{ route('settings.integrations.test') }}">@csrf
+          <button class="btn btn-label-success w-100"><i class="ri ri-flask-line me-1"></i>Kirim Event Tes Dummy</button>
+        </form>
+        @endcan
+      </div>
+    </div>
+  </div>
+
+  <div class="col-xl-7">
+    <div class="card h-100">
+      <div class="card-header"><h5 class="mb-1">Kesehatan Sistem</h5><small class="text-muted">Pemeriksaan tidak menampilkan password, token, GPS, atau payload payroll.</small></div>
+      <div class="card-body">
+        <div class="row g-3">
+          @foreach($healthChecks as $check)
+            @php($healthColor = match($check['status']) {'ok'=>'success','warning'=>'warning',default=>'danger'})
+            <div class="col-md-6">
+              <div class="border rounded p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <strong class="text-capitalize">{{ str_replace('_',' ',$check['component']) }}</strong>
+                  <span class="badge bg-label-{{ $healthColor }}">{{ strtoupper($check['status']) }}</span>
+                </div>
+                <div class="small text-muted">{{ $check['message'] }}</div>
+                @if(!empty($check['metrics']))<div class="small mt-2">{{ collect($check['metrics'])->map(fn($v,$k)=>"$k: ".(is_bool($v)?($v?'ya':'tidak'):$v))->implode(' • ') }}</div>@endif
+              </div>
+            </div>
+          @endforeach
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header"><h5 class="mb-1">Outbox Integrasi</h5><small class="text-muted">Idempotency mencegah event payroll terkirim dua kali.</small></div>
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>Event</th><th>Jenis</th><th>Status</th><th>Percobaan</th><th>Respons</th><th>Waktu</th><th></th></tr></thead>
+      <tbody>
+      @forelse($events as $event)
+        @php($eventColor = match($event->status) {'sent'=>'success','dead'=>'danger','failed'=>'warning','processing'=>'info',default=>'secondary'})
+        <tr>
+          <td><code>{{ Illuminate\Support\Str::limit($event->event_id,18) }}</code><div class="small text-muted">{{ Illuminate\Support\Str::limit($event->idempotency_key,42) }}</div></td>
+          <td>{{ $event->event_type }}<div class="small text-muted">{{ $event->aggregate_type ? class_basename($event->aggregate_type).' #'.$event->aggregate_id : '-' }}</div></td>
+          <td><span class="badge bg-label-{{ $eventColor }}">{{ strtoupper($event->status) }}</span></td>
+          <td>{{ $event->attempts }} / {{ $event->connection?->retry_limit ?? 0 }}</td>
+          <td><span class="small">{{ data_get($event->response_summary,'code',$event->last_error ?: '-') }}</span></td>
+          <td class="small">{{ $event->created_at?->format('d/m/Y H:i:s') }}</td>
+          <td>@can('integration.dispatch') @if($event->status !== 'sent')<form method="POST" action="{{ route('settings.integrations.retry',$event) }}">@csrf<button class="btn btn-sm btn-label-primary">Ulangi</button></form>@endif @endcan</td>
+        </tr>
+      @empty<tr><td colspan="7" class="text-center text-muted py-5">Belum ada event integrasi.</td></tr>@endforelse
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body">{{ $events->links() }}</div>
+</div>
+
+@can('audit.view')
+<div class="card">
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div><h5 class="mb-1">Audit Aktivitas</h5><small class="text-muted">Append-only, tenant-scoped, dan tidak menyimpan nilai sensitif.</small></div>
+    <form method="GET" class="d-flex gap-2"><input class="form-control form-control-sm" name="audit_search" value="{{ request('audit_search') }}" placeholder="Route / request ID"><button class="btn btn-sm btn-label-primary">Cari</button></form>
+  </div>
+  <div class="table-responsive">
+    <table class="table align-middle">
+      <thead><tr><th>Waktu</th><th>Pengguna</th><th>Aksi</th><th>Status</th><th>Field</th><th>Request ID</th></tr></thead>
+      <tbody>
+      @forelse($audits as $audit)
+        <tr>
+          <td class="small text-nowrap">{{ $audit->occurred_at?->format('d/m/Y H:i:s') }}</td>
+          <td>{{ $audit->user?->name ?? 'System/Guest' }}</td>
+          <td><strong>{{ $audit->action }}</strong><div class="small text-muted">{{ $audit->method }} {{ Illuminate\Support\Str::limit($audit->path,50) }}</div></td>
+          <td><span class="badge bg-label-{{ ($audit->response_status ?? 500) < 400 ? 'success' : 'danger' }}">{{ $audit->response_status ?? '-' }}</span></td>
+          <td class="small">{{ collect($audit->changed_fields ?? [])->implode(', ') ?: '-' }}</td>
+          <td><code>{{ Illuminate\Support\Str::limit($audit->request_id,13) }}</code></td>
+        </tr>
+      @empty<tr><td colspan="6" class="text-center text-muted py-5">Audit akan muncul setelah ada perubahan data.</td></tr>@endforelse
+      </tbody>
+    </table>
+  </div>
+  <div class="card-body">{{ $audits->links() }}</div>
+</div>
+@endcan
+@endsection
+

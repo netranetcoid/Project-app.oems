@@ -1,0 +1,219 @@
+.osm-logo-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.osm-sidebar-brand {
+  min-height: 78px;
+  padding-top: .75rem;
+  padding-bottom: .65rem;
+}
+
+.osm-brand-link {
+  min-width: 0;
+  gap: .6rem;
+}
+
+.osm-brand-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.osm-brand-copy strong {
+  color: var(--bs-heading-color);
+  font-size: .92rem;
+  font-weight: 750;
+  letter-spacing: .01em;
+}
+
+.osm-brand-copy small {
+  display: block;
+  max-width: 142px;
+  margin-top: .3rem;
+  color: var(--bs-secondary-color);
+  font-size: .58rem;
+  line-height: 1.25;
+  white-space: normal;
+}
+
+.osm-company-context {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  margin: .25rem .85rem .55rem;
+  padding: .65rem .7rem;
+  border: 1px solid rgba(0, 188, 212, .18);
+  border-radius: .7rem;
+  background: linear-gradient(135deg, rgba(0, 188, 212, .09), rgba(3, 30, 66, .03));
+}
+
+.osm-company-context > span:last-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.osm-company-context small {
+  color: var(--bs-secondary-color);
+  font-size: .62rem;
+}
+
+.osm-company-context strong {
+  overflow: hidden;
+  color: var(--bs-heading-color);
+  font-size: .7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.osm-context-dot {
+  width: .5rem;
+  height: .5rem;
+  flex: 0 0 .5rem;
+  border-radius: 50%;
+  background: #24d18f;
+  box-shadow: 0 0 0 .25rem rgba(36, 209, 143, .14);
+}
+
+.osm-dashboard-hero {
+  border: 0;
+  background:
+    radial-gradient(circle at 88% 12%, rgba(0, 220, 255, .24), transparent 29%),
+    linear-gradient(125deg, #031c3f 0%, #063c68 58%, #008fbd 130%);
+  box-shadow: 0 1rem 2.8rem rgba(3, 28, 63, .18);
+}
+
+.osm-hero-orbit {
+  position: absolute;
+  right: -7rem;
+  bottom: -12rem;
+  width: 27rem;
+  height: 27rem;
+  border: 1px solid rgba(255, 255, 255, .15);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3rem rgba(255, 255, 255, .025), 0 0 0 7rem rgba(255, 255, 255, .02);
+}
+
+.osm-hero-logo {
+  width: min(215px, 48vw);
+  height: auto;
+  filter: drop-shadow(0 .45rem 1rem rgba(0, 0, 0, .18));
+}
+
+.osm-hero-divider {
+  width: 1px;
+  height: 42px;
+  background: rgba(255, 255, 255, .3);
+}
+
+.osm-hero-eyebrow {
+  color: #70e7ff;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.osm-hero-company {
+  margin-top: .22rem;
+  color: #fff;
+  font-size: .9rem;
+  font-weight: 600;
+}
+
+.osm-hero-copy {
+  max-width: 650px;
+  color: rgba(255, 255, 255, .76);
+  font-size: .98rem;
+}
+
+.osm-quick-actions .btn-outline-light:hover {
+  color: #052846;
+}
+
+.osm-active-company-card {
+  display: flex;
+  max-width: 290px;
+  flex-direction: column;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, .1);
+  color: rgba(255, 255, 255, .72);
+  backdrop-filter: blur(12px);
+}
+
+.osm-active-company-card > small {
+  margin-top: .9rem;
+  font-size: .68rem;
+  text-transform: uppercase;
+}
+
+.osm-active-company-card > strong {
+  margin: .15rem 0 .25rem;
+  color: #fff;
+  font-size: 1rem;
+}
+
+.osm-active-company-card > div:last-child {
+  font-size: .7rem;
+}
+
+.osm-status-pill {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: .45rem;
+  padding: .3rem .55rem;
+  border-radius: 2rem;
+  background: rgba(36, 209, 143, .15);
+  color: #b8ffe3;
+  font-size: .7rem;
+  font-weight: 600;
+}
+
+.osm-status-pill span {
+  width: .42rem;
+  height: .42rem;
+  border-radius: 50%;
+  background: #3ee4a2;
+  box-shadow: 0 0 0 .22rem rgba(62, 228, 162, .14);
+}
+
+.osm-request-filter .nav-link {
+  border: 1px solid var(--bs-border-color);
+  background: var(--bs-body-bg);
+}
+
+.osm-request-filter .nav-link.active {
+  border-color: var(--bs-primary);
+  background: var(--bs-primary);
+}
+
+@media (max-width: 991.98px) {
+  .osm-active-company-card {
+    max-width: none;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .osm-dashboard-hero .card-body {
+    padding: 1.35rem !important;
+  }
+
+  .osm-hero-logo {
+    width: 175px;
+  }
+
+  .osm-hero-copy {
+    font-size: .88rem;
+  }
+
+  .osm-quick-actions .btn {
+    flex: 1 1 calc(50% - .5rem);
+  }
+}

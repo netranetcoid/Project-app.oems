@@ -1,0 +1,222 @@
+<?php
+
+namespace App\Services\Employee;
+
+use App\Models\Employee;
+use Illuminate\Support\Facades\DB;
+
+class EmployeeService
+{
+    public function __construct(
+        protected EmployeePhotoService $photoService
+    ) {
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Generate Employee Number
+    |--------------------------------------------------------------------------
+    */
+
+    protected function generateEmployeeNo(int $companyId): string
+    {
+        $last = Employee::query()
+            ->where('company_id', $companyId)
+            ->orderByDesc('id')
+            ->first();
+
+        if (!$last) {
+            return 'EMP-00001';
+        }
+
+        $number = (int) preg_replace(
+            '/[^0-9]/',
+            '',
+            $last->employee_no
+        );
+
+        return 'EMP-' . str_pad(
+            $number + 1,
+            5,
+            '0',
+            STR_PAD_LEFT
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Store
+    |--------------------------------------------------------------------------
+    */
+
+    public function store(array $data): Employee
+    {
+        return DB::transaction(function () use ($data) {
+
+            $companyId = session('company_id');
+
+            $data['company_id'] = $companyId;
+
+            /*
+            |--------------------------------------------------------------------------
+            | Employee Number
+            |--------------------------------------------------------------------------
+            */
+
+            if (empty($data['employee_no'])) {
+
+                $data['employee_no'] = $this->generateEmployeeNo(
+                    $companyId
+                );
+
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Default Status
+            |--------------------------------------------------------------------------
+            */
+
+            $data['work_status'] ??= 'active';
+
+            $data['employment_status'] ??= 'permanent';
+
+            /*
+            |--------------------------------------------------------------------------
+            | Upload Photo
+            |--------------------------------------------------------------------------
+            */
+
+            if (
+                !empty($data['photo'])
+            ) {
+
+                $data['photo'] = $this->photoService->upload(
+
+                    $data['photo'],
+
+                    $companyId
+
+                );
+
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Create Employee
+            |--------------------------------------------------------------------------
+            */
+
+            return Employee::create($data);
+
+        });
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Update
+    |--------------------------------------------------------------------------
+    */
+    public function update(
+    Employee $employee,
+    array $data
+): Employee {
+
+    return DB::transaction(function () use (
+        $employee,
+        $data
+    ) {
+
+        $companyId = session('company_id');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Replace Photo
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($data['photo'])) {
+
+            $data['photo'] = $this->photoService->replace(
+
+                $employee->photo,
+
+                $data['photo'],
+
+                $companyId
+
+            );
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | Company Protection
+        |--------------------------------------------------------------------------
+        */
+
+        unset($data['company_id']);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Update Employee
+        |--------------------------------------------------------------------------
+        */
+
+        $employee->update($data);
+
+        /*
+        |--------------------------------------------------------------------------
+        | Reload Relationship
+        |--------------------------------------------------------------------------
+        */
+
+        return $employee->fresh([
+            'branch',
+            'division',
+            'position',
+            'supervisor',
+            'manager',
+        ]);
+
+    });
+
+}
+
+/*
+|--------------------------------------------------------------------------
+| Delete
+|--------------------------------------------------------------------------
+*/
+    public function delete(
+        Employee $employee
+    ): void {
+
+        DB::transaction(function () use ($employee) {
+
+            /*
+            |--------------------------------------------------------------------------
+            | Delete Photo
+            |--------------------------------------------------------------------------
+            */
+
+            if (!empty($employee->photo)) {
+
+                $this->photoService->delete(
+                    $employee->photo
+                );
+
+            }
+
+            /*
+            |--------------------------------------------------------------------------
+            | Soft Delete Employee
+            |--------------------------------------------------------------------------
+            */
+
+            $employee->delete();
+
+        });
+
+    }
+}

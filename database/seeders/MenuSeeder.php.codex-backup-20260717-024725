@@ -1,0 +1,187 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+
+class MenuSeeder extends Seeder
+{
+    public function run(): void
+    {
+        DB::table('menus')->truncate();
+
+        $modules = DB::table('modules')
+            ->pluck('id', 'code');
+
+        /*
+        |--------------------------------------------------------------------------
+        | ROOT MENU
+        |--------------------------------------------------------------------------
+        */
+
+        $dashboard = DB::table('menus')->insertGetId([
+            'module_id' => $modules['dashboard'],
+            'code' => 'dashboard',
+            'name' => 'Dashboard',
+            'label' => 'Dashboard',
+            'type' => 'menu',
+            'icon' => 'ti ti-smart-home',
+            'route_name' => 'dashboard',
+            'permission_name' => 'dashboard.view',
+            'sort_order' => 1,
+            'level' => 1,
+            'is_active' => true,
+            'is_visible' => true,
+            'is_system' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $master = DB::table('menus')->insertGetId([
+            'module_id' => $modules['master'],
+            'code' => 'master',
+            'name' => 'Master',
+            'label' => 'Master Data',
+            'type' => 'menu',
+            'icon' => 'ti ti-database',
+            'sort_order' => 2,
+            'level' => 1,
+            'is_active' => true,
+            'is_visible' => true,
+            'is_system' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $hr = DB::table('menus')->insertGetId([
+            'module_id' => $modules['employee'],
+            'code' => 'hr',
+            'name' => 'Human Resource',
+            'label' => 'Human Resource',
+            'type' => 'menu',
+            'icon' => 'ti ti-users',
+            'sort_order' => 3,
+            'level' => 1,
+            'is_active' => true,
+            'is_visible' => true,
+            'is_system' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $system = DB::table('menus')->insertGetId([
+            'module_id' => $modules['setting'],
+            'code' => 'system',
+            'name' => 'System',
+            'label' => 'System',
+            'type' => 'menu',
+            'icon' => 'ti ti-settings',
+            'sort_order' => 99,
+            'level' => 1,
+            'is_active' => true,
+            'is_visible' => true,
+            'is_system' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | MASTER CHILD
+        |--------------------------------------------------------------------------
+        */
+
+        $this->menu($modules['master'], $master, 'company', 'Company', 'master.companies.index', 'company.view', 1);
+
+        $this->menu($modules['master'], $master, 'branch', 'Site', 'master.branches.index', 'branch.view', 2);
+
+        $this->menu($modules['master'], $master, 'division', 'Division', 'master.divisions.index', 'division.view', 3);
+
+        $this->menu($modules['master'], $master, 'position', 'Position', 'master.positions.index', 'position.view', 4);
+
+
+        $this->menu(
+    $modules['master'],
+    $master,
+    'contract-type',
+    'Jenis Kontrak',
+    'master.contract-types.index',
+    'contract-type.view',
+    5
+);
+        /*
+        |--------------------------------------------------------------------------
+        | HR
+        |--------------------------------------------------------------------------
+        */
+
+        $this->menu($modules['employee'], $hr, 'employee', 'Pegawai', 'employees.index', 'employees.view', 1);
+
+        $this->menu($modules['attendance'], $hr, 'attendance', 'Absensi', 'attendance.index', 'attendance.view', 2);
+
+        $this->menu($modules['leave'], $hr, 'leave', 'Cuti', 'leave.view', 'leave.view', 3);
+
+        $this->menu($modules['overtime'], $hr, 'overtime', 'Lembur', 'overtime.view', 'overtime.view', 4);
+
+        $this->menu($modules['payroll'], $hr, 'payroll', 'Payroll', 'payroll.view', 'payroll.view', 5);
+
+        /*
+        |--------------------------------------------------------------------------
+        | SYSTEM
+        |--------------------------------------------------------------------------
+        */
+
+        $this->menu($modules['setting'], $system, 'users', 'Users', 'users.index', 'users.view', 1);
+
+        $this->menu($modules['setting'], $system, 'roles', 'Roles', 'roles.index', 'roles.view', 2);
+
+        $this->menu($modules['setting'], $system, 'permissions', 'Permissions', 'permissions.index', 'permissions.view', 3);
+
+        $this->menu($modules['setting'], $system, 'menus', 'Menus', 'menus.index', 'menus.view', 4);
+    }
+
+    private function menu(
+        $moduleId,
+        $parentId,
+        $code,
+        $name,
+        $route,
+        $permission,
+        $sort
+    ) {
+        DB::table('menus')->insert([
+
+            'module_id' => $moduleId,
+
+            'parent_id' => $parentId,
+
+            'code' => $code,
+
+            'name' => $name,
+
+            'label' => $name,
+
+            'type' => 'menu',
+
+            'route_name' => $route,
+
+            'permission_name' => $permission,
+
+            'sort_order' => $sort,
+
+            'level' => 2,
+
+            'is_active' => true,
+
+            'is_visible' => true,
+
+            'is_system' => true,
+
+            'created_at' => now(),
+
+            'updated_at' => now(),
+
+        ]);
+    }
+}

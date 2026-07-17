@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+
+<meta charset="UTF-8">
+
+<title>
+
+Kontrak Kerja - <?php echo e($contract->contract_no); ?>
+
+
+</title>
+
+<style>
+
+/* ======================================================
+   OEMS CONTRACT STYLE
+====================================================== */
+
+@page{
+
+    size:A4 portrait;
+
+    margin:15mm;
+
+}
+
+*{
+
+    margin:0;
+
+    padding:0;
+
+    box-sizing:border-box;
+
+}
+
+html,
+body{
+
+    width:210mm;
+
+    min-height:297mm;
+
+    margin:0;
+
+    padding:0;
+
+    background:#d8d8d8;
+
+    font-family:"Times New Roman",serif;
+
+    font-size:12pt;
+
+}
+
+.preview{
+
+    width:210mm;
+
+    margin:15px auto;
+
+}
+
+.paper{
+
+    position:relative;
+
+    width:210mm;
+
+    min-height:297mm;
+
+    background:#fff;
+
+    padding:18mm;
+
+    box-shadow:0 0 15px rgba(0,0,0,.15);
+
+    overflow:hidden;
+
+}
+
+/* ================= WATERMARK ================= */
+
+.paper::before{
+
+content:"";
+
+position:absolute;
+
+left:50%;
+
+top:50%;
+
+transform:translate(-50%,-50%);
+
+width:420px;
+
+height:420px;
+
+background:url("<?php echo e(asset('assets/img/logo_osm_transparent.png')); ?>") center no-repeat;
+
+background-size:contain;
+
+opacity:.04;
+
+z-index:0;
+
+}
+
+.paper>*{
+
+position:relative;
+
+z-index:2;
+
+}
+
+/* ================= HEADER ================= */
+
+.header{
+
+display:grid;
+
+grid-template-columns:160px auto;
+
+column-gap:20px;
+
+align-items:center;
+
+padding-bottom:12px;
+
+}
+
+.logo{
+
+text-align:center;
+
+}
+
+.logo img{
+
+width:180px;
+
+height:auto;
+
+}
+
+.company{
+
+text-align:center;
+
+}
+
+.company h1{
+
+font-size:18pt;
+
+font-weight:bold;
+
+margin-bottom:4px;
+
+}
+
+.company h3{
+
+font-size:12pt;
+
+font-weight:bold;
+
+color:#0b67b2;
+
+margin-bottom:6px;
+
+}
+
+.company p{
+
+font-size:10pt;
+
+margin:2px;
+
+}
+
+.header-border{
+
+margin-top:10px;
+
+border-top:3px solid #000;
+
+border-bottom:1px solid #000;
+
+height:4px;
+
+margin-bottom:28px;
+
+}
+
+/* ================= TITLE ================= */
+
+.title{
+
+text-align:center;
+
+margin-bottom:25px;
+
+}
+
+.title h1{
+
+font-size:13pt;
+
+font-weight:bold;
+
+margin-bottom:5px;
+
+}
+
+.title h3{
+
+font-size:12pt;
+
+font-weight:normal;
+
+}
+
+/* ================= PARAGRAPH ================= */
+
+.justify{
+
+text-align:justify;
+
+text-indent:40px;
+
+line-height:1.9;
+
+margin-bottom:12px;
+
+}
+
+/* ================= TABLE ================= */
+
+.identity{
+
+width:100%;
+
+border-collapse:collapse;
+
+margin:18px 0;
+
+}
+
+.identity td{
+
+padding:5px 3px;
+
+vertical-align:top;
+
+}
+
+/* ================= ARTICLE ================= */
+
+.article{
+
+margin-top:24px;
+
+margin-bottom:15px;
+
+text-align:center;
+
+}
+
+.article h2{
+
+font-size:16pt;
+
+margin-bottom:5px;
+
+}
+
+.article h3{
+
+font-size:12pt;
+
+font-weight:bold;
+
+text-transform:uppercase;
+
+}
+
+ul,
+ol{
+
+margin-left:30px;
+
+margin-bottom:15px;
+
+}
+
+li{
+
+line-height:1.8;
+
+margin-bottom:5px;
+
+}
+
+/* ================= SIGNATURE ================= */
+
+.signature{
+
+width:100%;
+
+margin-top:90px;
+
+border-collapse:collapse;
+
+}
+
+.signature td{
+
+width:50%;
+
+text-align:center;
+
+vertical-align:top;
+
+padding:10px;
+
+}
+
+.footer{
+
+margin-top:30px;
+
+border-top:1px solid #999;
+
+padding-top:8px;
+
+font-size:10pt;
+
+text-align:center;
+
+color:#666;
+
+}
+
+/* ================= PRINT ================= */
+
+@media print{
+
+    html,
+    body{
+
+        margin:0;
+
+        padding:0;
+
+        background:#fff;
+
+    }
+
+    .preview{
+
+        width:100%;
+
+        margin:0;
+
+    }
+
+    .paper{
+
+        width:100%;
+
+        min-height:auto;
+
+        margin:0;
+
+        padding:0;
+
+        box-shadow:none;
+
+    }
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="preview">
+
+<div class="paper">
+
+<!-- ================= HEADER ================= -->
+
+<div class="header">
+
+<div class="logo">
+
+<img src="<?php echo e(asset('assets/img/logo_osm_transparent.png')); ?>">
+
+</div>
+
+<div class="company">
+
+<h1>
+
+PT. OVALL SOLUSINDO MANDIRI
+
+</h1>
+
+<p>
+
+Perum Alam Tirta Lestari Blok D No.005
+
+</p>
+
+<p>
+
+Ciomas • Kabupaten Bogor • Jawa Barat
+
+</p>
+
+<p>
+
+Telp : (0251) 2027233
+
+|
+
+office@osm.net.id
+
+|
+
+www.osm.net.id
+
+</p>
+
+</div>
+
+</div>
+
+<div class="header-border"></div>
+
+<?php
+    $templateKey = $contract->contractType?->template_key ?? 'pkwt_1';
+    $contractTitle = match ($templateKey) {
+        'probation' => 'PERJANJIAN KERJA WAKTU TIDAK TERTENTU (PKWTT) DENGAN MASA PERCOBAAN',
+        'pkwt_2' => 'PERJANJIAN KERJA WAKTU TERTENTU II',
+        'internship' => 'PERJANJIAN PEMAGANGAN',
+        default => 'PERJANJIAN KERJA WAKTU TERTENTU I',
+    };
+    $termLabel = match ($templateKey) {
+        'probation' => 'PKWTT - masa percobaan/evaluasi 3 bulan',
+        'pkwt_2' => 'PKWT Tahap 2 / perpanjangan',
+        'internship' => 'Program pemagangan',
+        default => 'PKWT Tahap 1',
+    };
+?>
+
+<div class="title">
+
+<h1>
+
+<?php echo e($contractTitle); ?>
+
+
+</h1>
+
+<h3>
+
+Nomor :
+
+<?php echo e($contract->contract_no); ?>
+
+
+</h3>
+
+<div><?php echo e($termLabel); ?></div>
+
+</div>
+<p class="justify">
+
+Pada hari ini,
+
+<b><?php echo e(now()->translatedFormat('d F Y')); ?></b>
+
+telah dibuat Perjanjian Kerja antara:
+
+</p>
+
+<br>
+
+<table class="identity">
+
+<tr>
+
+<td width="35">
+
+<b>I.</b>
+
+</td>
+
+<td>
+
+<b>PIHAK PERTAMA (PERUSAHAAN)</b>
+
+</td>
+
+</tr>
+
+<tr>
+
+<td></td>
+
+<td>
+
+<table class="identity">
+
+<tr>
+
+<td width="180">
+
+Nama Perusahaan
+
+</td>
+
+<td>
+
+:
+
+PT. OVALL SOLUSINDO MANDIRI
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Alamat
+
+</td>
+
+<td>
+
+:
+
+Perum Alam Tirta Lestari Blok D No.005 Kabupaten Bogor
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Diwakili Oleh
+
+</td>
+
+<td>
+
+:
+
+_____________________________
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Jabatan
+
+</td>
+
+<td>
+
+:
+
+Head Of Human Resource
+
+</td>
+
+</tr>
+
+</table>
+
+</td>
+
+</tr>
+
+</table>
+
+<table class="identity">
+
+<tr>
+
+<td width="35">
+
+<b>II.</b>
+
+</td>
+
+<td>
+
+<b>PIHAK KEDUA (KARYAWAN)</b>
+
+</td>
+
+</tr>
+
+<tr>
+
+<td></td>
+
+<td>
+
+<table class="identity">
+
+<tr>
+
+<td width="180">
+
+Nama
+
+</td>
+
+<td>
+
+:
+
+<b><?php echo e($contract->employee_name); ?></b>
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+NIK
+
+</td>
+
+<td>
+
+:
+
+<?php echo e($contract->employee->identity_number ?? '-'); ?>
+
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Alamat
+
+</td>
+
+<td>
+
+:
+
+<?php echo nl2br(e($contract->employee->address ?? '-')); ?>
+
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+No. HP
+
+</td>
+
+<td>
+
+:
+
+<?php echo e($contract->phone); ?>
+
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Email
+
+</td>
+
+<td>
+
+:
+
+<?php echo e($contract->email); ?>
+
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Jabatan
+
+</td>
+
+<td>
+
+:
+
+<?php echo e($contract->position_name); ?>
+
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Divisi
+
+</td>
+
+<td>
+
+:
+
+<?php echo e($contract->division_name); ?>
+
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Site
+
+</td>
+
+<td>
+
+:
+
+<?php echo e($contract->branch_name); ?>
+
+
+</td>
+
+</tr>
+
+</table>
+
+</td>
+
+</tr>
+
+</table>
+
+<p class="justify">
+
+Kedua belah pihak sepakat mengikatkan diri dalam Perjanjian Kerja ini dengan ketentuan dan syarat-syarat yang diatur dalam pasal-pasal berikut.
+
+</p>
+
+<!-- ================= PASAL 1 ================= -->
+
+<div class="article">
+
+<h2>PASAL 1</h2>
+
+<h3>JABATAN DAN PENEMPATAN</h3>
+
+</div>
+
+<p class="justify">
+
+PIHAK KEDUA diterima bekerja sebagai
+
+<b><?php echo e($contract->position_name); ?></b>
+
+pada Divisi
+
+<b><?php echo e($contract->division_name); ?></b>
+
+PT. OVALL SOLUSINDO MANDIRI.
+
+</p>
+
+<p class="justify">
+
+PIHAK KEDUA bersedia melaksanakan seluruh pekerjaan, tugas, tanggung jawab, mematuhi Standar Operasional Prosedur (SOP), Peraturan Perusahaan, serta seluruh instruksi atasan yang berlaku.
+
+</p>
+
+<p class="justify">
+
+PIHAK KEDUA juga bersedia ditempatkan pada unit kerja, site maupun cabang lain sesuai kebutuhan operasional perusahaan.
+
+</p>
+
+<!-- ================= PASAL 2 ================= -->
+
+<div class="article">
+
+<h2>PASAL 2</h2>
+
+<h3>MASA KERJA</h3>
+
+</div>
+
+<p class="justify">
+
+Perjanjian kerja ini berlaku sejak
+
+<b><?php echo e(optional($contract->start_date)->translatedFormat('d F Y')); ?></b>
+
+<?php if($templateKey === 'probation'): ?>
+dengan masa percobaan/evaluasi sampai dengan
+
+<b><?php echo e(optional($contract->probation_end_date)->translatedFormat('d F Y')); ?></b>
+
+dan hubungan kerja tidak berakhir otomatis pada tanggal evaluasi.
+<?php elseif($templateKey === 'internship'): ?>
+sampai dengan <b><?php echo e(optional($contract->end_date)->translatedFormat('d F Y')); ?></b>
+sesuai program pemagangan dan dokumen program yang disepakati para pihak.
+<?php else: ?>
+sampai dengan <b><?php echo e(optional($contract->end_date)->translatedFormat('d F Y')); ?></b>
+sesuai ketentuan Perjanjian Kerja Waktu Tertentu (PKWT) yang berlaku.
+<?php endif; ?>
+
+</p>
+
+<p class="justify">
+
+Perusahaan berhak melakukan evaluasi terhadap kinerja, disiplin, kompetensi, serta perilaku kerja PIHAK KEDUA selama masa kontrak berlangsung.
+
+</p>
+
+<p class="justify">
+
+Perpanjangan kontrak dapat dilakukan berdasarkan hasil evaluasi perusahaan serta kebutuhan operasional.
+
+</p>
+
+<p class="justify">
+
+Hasil Penilaian Kinerja OEMS menjadi salah satu dasar perusahaan dalam menentukan perpanjangan kontrak, pengangkatan menjadi karyawan tetap, promosi jabatan maupun pemberian bonus.
+
+</p>
+
+<!-- ================= PASAL 3 ================= -->
+
+<div class="article">
+
+<h2>PASAL 3</h2>
+
+<h3>JAM KERJA</h3>
+
+</div>
+
+<p class="justify">
+
+Jam kerja mengikuti ketentuan operasional PT. OVALL SOLUSINDO MANDIRI.
+
+</p>
+
+<table class="identity">
+
+<tr>
+
+<td width="220">
+
+Hari Kerja
+
+</td>
+
+<td>
+
+:
+
+Senin s.d Sabtu
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Jam Kerja
+
+</td>
+
+<td>
+
+:
+
+08.00 WIB - 17.00 WIB
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Hari Libur
+
+</td>
+
+<td>
+
+:
+
+Minggu dan Hari Libur Nasional atau sesuai kebijakan perusahaan.
+
+</td>
+
+</tr>
+
+</table>
+
+<p class="justify">
+
+Apabila diperlukan, PIHAK KEDUA bersedia bekerja lembur, piket, on-call maupun penugasan di luar jam kerja sesuai kebutuhan operasional perusahaan.
+
+</p>
+<!-- ================= PASAL 4 ================= -->
+
+<div class="article">
+
+<h2>PASAL 4</h2>
+
+<h3>UPAH DAN TUNJANGAN</h3>
+
+</div>
+
+<p class="justify">
+
+<?php if($templateKey === 'internship'): ?>
+PIHAK PERTAMA memberikan uang saku dan fasilitas program kepada PIHAK KEDUA sesuai dokumen pemagangan dan kebijakan perusahaan sebagai berikut.
+<?php else: ?>
+PIHAK PERTAMA memberikan upah kepada PIHAK KEDUA sesuai ketentuan perusahaan sebagai berikut.
+<?php endif; ?>
+
+</p>
+
+<table class="identity">
+
+<tr>
+
+<td width="250">
+
+<?php echo e($templateKey === 'internship' ? 'Uang Saku / Imbalan Program' : 'Gaji Pokok'); ?>
+
+
+</td>
+
+<td>
+
+:
+
+Rp <?php echo e(number_format($contract->basic_salary,0,',','.')); ?>
+
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Tunjangan Jabatan
+
+</td>
+
+<td>
+
+:
+
+Rp <?php echo e(number_format($contract->position_allowance ?? 0,0,',','.')); ?>
+
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Tunjangan Transport
+
+</td>
+
+<td>
+
+:
+
+Rp <?php echo e(number_format($contract->transport_allowance ?? 0,0,',','.')); ?>
+
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Tunjangan Makan
+
+</td>
+
+<td>
+
+:
+
+Rp <?php echo e(number_format($contract->meal_allowance ?? 0,0,',','.')); ?>
+
+
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+
+Tunjangan Tetap
+
+</td>
+
+<td>
+
+:
+
+Rp <?php echo e(number_format($contract->fixed_allowance ?? 0,0,',','.')); ?>
+
+
+</td>
+
+</tr>
+
+</table>
+
+<p class="justify">
+
+Pembayaran gaji dilakukan setiap bulan sesuai kebijakan perusahaan melalui transfer bank atau metode pembayaran lain yang ditentukan perusahaan.
+
+</p>
+
+<p class="justify">
+
+Perusahaan berhak melakukan penyesuaian terhadap komponen penghasilan berdasarkan evaluasi jabatan, perubahan kebijakan maupun peraturan pemerintah.
+
+</p>
+
+<!-- ================= PASAL 5 ================= -->
+
+<div class="article">
+
+<h2>PASAL 5</h2>
+
+<h3>JAMINAN SOSIAL</h3>
+
+</div>
+
+<p class="justify">
+
+PIHAK KEDUA akan didaftarkan dalam program BPJS Kesehatan dan BPJS Ketenagakerjaan sesuai ketentuan perundang-undangan dan kebijakan perusahaan.
+
+</p>
+
+<p class="justify">
+
+Besaran iuran menjadi tanggung jawab perusahaan dan karyawan sesuai ketentuan pemerintah yang berlaku.
+
+</p>
+
+<!-- ================= PASAL 6 ================= -->
+
+<div class="article">
+
+<h2>PASAL 6</h2>
+
+<h3>HAK KARYAWAN</h3>
+
+</div>
+
+<ul>
+
+<li>Menerima gaji tepat waktu sesuai ketentuan perusahaan.</li>
+
+<li>Mendapatkan lingkungan kerja yang aman dan nyaman.</li>
+
+<li>Mendapatkan cuti sesuai ketentuan yang berlaku.</li>
+
+<li>Mendapatkan fasilitas kerja sesuai jabatan.</li>
+
+<li>Mendapatkan penilaian KPI secara objektif.</li>
+
+<li>Mendapatkan kesempatan mengikuti pelatihan perusahaan.</li>
+
+</ul>
+
+<!-- ================= PASAL 7 ================= -->
+
+<div class="article">
+
+<h2>PASAL 7</h2>
+
+<h3>KEWAJIBAN KARYAWAN</h3>
+
+</div>
+
+<ul>
+
+<li>Mematuhi seluruh Peraturan Perusahaan.</li>
+
+<li>Menjaga nama baik perusahaan.</li>
+
+<li>Menjaga kerahasiaan data perusahaan.</li>
+
+<li>Melaksanakan pekerjaan dengan penuh tanggung jawab.</li>
+
+<li>Menggunakan seluruh aset perusahaan dengan baik.</li>
+
+<li>Mengikuti SOP, KPI dan seluruh kebijakan OEMS.</li>
+
+<li>Melaksanakan instruksi atasan sesuai ruang lingkup pekerjaan.</li>
+
+</ul>
+<!-- ================= PASAL 8 ================= -->
+
+<div class="article">
+
+<h2>PASAL 8</h2>
+
+<h3>DISIPLIN KERJA</h3>
+
+</div>
+
+<p class="justify">
+
+PIHAK KEDUA wajib menjaga disiplin kerja, hadir tepat waktu, mematuhi jadwal kerja, melaksanakan absensi melalui sistem OEMS, serta mematuhi seluruh ketentuan operasional perusahaan.
+
+</p>
+
+<p class="justify">
+
+Pelanggaran terhadap disiplin kerja akan menjadi salah satu komponen penilaian KPI serta evaluasi perpanjangan kontrak kerja.
+
+</p>
+
+<!-- ================= PASAL 9 ================= -->
+
+<div class="article">
+
+<h2>PASAL 9</h2>
+
+<h3>LARANGAN</h3>
+
+</div>
+
+<ul>
+
+<li>Menyalahgunakan wewenang atau jabatan.</li>
+
+<li>Membocorkan data pelanggan maupun data perusahaan.</li>
+
+<li>Menggunakan aset perusahaan untuk kepentingan pribadi tanpa izin.</li>
+
+<li>Melakukan tindakan yang merugikan perusahaan.</li>
+
+<li>Melakukan kekerasan, perjudian, penyalahgunaan narkoba maupun tindakan kriminal lainnya.</li>
+
+<li>Melakukan manipulasi absensi, laporan kerja maupun data KPI.</li>
+
+</ul>
+
+<!-- ================= PASAL 10 ================= -->
+
+<div class="article">
+
+<h2>PASAL 10</h2>
+
+<h3>SANKSI</h3>
+
+</div>
+
+<p class="justify">
+
+Setiap pelanggaran terhadap Perjanjian Kerja maupun Peraturan Perusahaan akan dikenakan sanksi sesuai tingkat pelanggaran.
+
+</p>
+
+<ol>
+
+<li>Teguran Lisan.</li>
+
+<li>Teguran Tertulis I.</li>
+
+<li>Teguran Tertulis II.</li>
+
+<li>Skorsing apabila diperlukan.</li>
+
+<li>Pemutusan Hubungan Kerja sesuai ketentuan yang berlaku.</li>
+
+</ol>
+
+<p class="justify">
+
+Perusahaan berhak mengambil tindakan lain sesuai ketentuan hukum dan Peraturan Perusahaan apabila pelanggaran menimbulkan kerugian material maupun immaterial.
+
+</p>
+
+<!-- ================= PASAL 11 ================= -->
+
+<div class="article">
+
+<h2>PASAL 11</h2>
+
+<h3>PEMUTUSAN HUBUNGAN KERJA</h3>
+
+</div>
+
+<p class="justify">
+
+Perjanjian Kerja ini dapat berakhir karena:
+
+</p>
+
+<ol>
+
+<li>Masa kontrak berakhir.</li>
+
+<li>Pengunduran diri PIHAK KEDUA.</li>
+
+<li>Pemutusan hubungan kerja oleh perusahaan.</li>
+
+<li>Meninggal dunia.</li>
+
+<li>Ketentuan lain sesuai peraturan perundang-undangan.</li>
+
+</ol>
+
+<p class="justify">
+
+Seluruh hak dan kewajiban para pihak akan diselesaikan sesuai ketentuan yang berlaku.
+
+</p>
+<!-- ================= PASAL 12 ================= -->
+
+<div class="article">
+
+<h2>PASAL 12</h2>
+
+<h3>KEADAAN MEMAKSA (FORCE MAJEURE)</h3>
+
+</div>
+
+<p class="justify">
+
+Yang dimaksud keadaan memaksa adalah keadaan di luar kemampuan para pihak seperti bencana alam, perang, kebakaran, wabah penyakit, gangguan sistem nasional, kebijakan pemerintah maupun keadaan lain yang menyebabkan salah satu pihak tidak dapat melaksanakan kewajibannya.
+
+</p>
+
+<p class="justify">
+
+Dalam keadaan tersebut kedua belah pihak akan menyelesaikan segala kewajiban secara musyawarah sesuai ketentuan hukum yang berlaku.
+
+</p>
+
+<!-- ================= PASAL 13 ================= -->
+
+<div class="article">
+
+<h2>PASAL 13</h2>
+
+<h3>PENYELESAIAN PERSELISIHAN</h3>
+
+</div>
+
+<p class="justify">
+
+Apabila terjadi perselisihan yang timbul akibat pelaksanaan Perjanjian Kerja ini, maka kedua belah pihak sepakat untuk menyelesaikannya terlebih dahulu secara musyawarah untuk mufakat.
+
+</p>
+
+<p class="justify">
+
+Apabila penyelesaian secara musyawarah tidak tercapai, maka penyelesaian dilakukan sesuai ketentuan peraturan perundang-undangan Republik Indonesia.
+
+</p>
+
+<!-- ================= PASAL 14 ================= -->
+
+<div class="article">
+
+<h2>PASAL 14</h2>
+
+<h3>PENUTUP</h3>
+
+</div>
+
+<p class="justify">
+
+Perjanjian Kerja ini dibuat dalam keadaan sadar, tanpa adanya paksaan dari pihak manapun, untuk dipatuhi dan dilaksanakan dengan penuh tanggung jawab oleh kedua belah pihak.
+
+</p>
+
+<p class="justify">
+
+Perjanjian ini mulai berlaku sejak tanggal ditandatangani dan dibuat dalam dua rangkap yang masing-masing mempunyai kekuatan hukum yang sama.
+
+</p>
+
+<?php if(!empty($addendum)): ?>
+<div class="article">
+    <h2>LAMPIRAN</h2>
+    <h3>KETENTUAN KHUSUS TEMPLATE</h3>
+</div>
+<?php echo $addendum; ?>
+
+<?php endif; ?>
+
+<br><br>
+
+<table class="signature">
+
+<tr>
+
+<td>
+
+Mengetahui,
+
+<br><br>
+
+<b>PT. OVALL SOLUSINDO MANDIRI</b>
+
+<br><br><br><br><br><br>
+
+<u><b>__________________________</b></u>
+
+<br>
+
+Head Human Resource
+
+</td>
+
+<td>
+
+Bogor,
+
+<?php echo e(now()->translatedFormat('d F Y')); ?>
+
+
+<br><br>
+
+<b>PIHAK KEDUA</b>
+
+<br><br><br><br><br><br>
+
+<u><b><?php echo e(strtoupper($contract->employee_name)); ?></b></u>
+
+<br>
+
+Karyawan
+
+</td>
+
+</tr>
+
+</table>
+
+<div class="footer">
+
+Dokumen ini dibuat melalui
+
+<b>OEMS (Ovall Enterprise Management System)</b>
+
+<br>
+
+Nomor Kontrak :
+
+<b><?php echo e($contract->contract_no); ?></b>
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+window.onload=function(){
+
+    window.print();
+
+};
+
+</script>
+
+</body>
+
+</html>
+
+<?php /**PATH C:\laragon\www\appoems\resources\views/hr/contracts/print.blade.php ENDPATH**/ ?>

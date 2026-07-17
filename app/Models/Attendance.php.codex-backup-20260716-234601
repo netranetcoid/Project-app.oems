@@ -1,0 +1,46 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Attendance extends Model
+{
+    use HasFactory;
+
+    // Ini kunci biar Laravel mau nyimpen data ke kolom-kolom ini
+    protected $fillable = [
+        'company_id',
+        'employee_id',
+        'attendance_shift_id',
+        'date',
+        'clock_in_at',
+        'clock_out_at',
+        'in_latitude',
+        'in_longitude',
+        'in_photo',
+        'out_latitude',
+        'out_longitude',
+        'out_photo',
+        'status',
+        'notes',
+    ];
+
+    /**
+     * Relasi ke Employee (Karyawan)
+     * Jadi lu bisa panggil $attendance->employee->name buat tau siapa yang absen
+     */
+    public function employee()
+    {
+        return $this->belongsTo(Employee::class);
+    }
+
+    /**
+     * Relasi ke Shift
+     */
+    public function shift()
+    {
+        return $this->belongsTo(AttendanceShift::class, 'attendance_shift_id');
+    }
+}

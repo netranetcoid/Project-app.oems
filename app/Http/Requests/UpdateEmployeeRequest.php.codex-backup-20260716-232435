@@ -1,0 +1,223 @@
+<?php
+
+namespace App\Http\Requests;
+
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class UpdateEmployeeRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    public function rules(): array
+    {
+        $employee = $this->route('employee');
+
+        $employeeId = is_object($employee)
+            ? $employee->id
+            : $employee;
+
+        return [
+
+            /*
+            |--------------------------------------------------------------------------
+            | Organization
+            |--------------------------------------------------------------------------
+            */
+
+            'branch_id' => 'nullable|exists:branches,id',
+
+            'division_id' => 'nullable|exists:divisions,id',
+
+            'position_id' => 'nullable|exists:positions,id',
+
+            'supervisor_employee_id' => 'nullable|exists:employees,id',
+
+            'manager_employee_id' => 'nullable|exists:employees,id',
+
+            /*
+            |--------------------------------------------------------------------------
+            | Identity
+            |--------------------------------------------------------------------------
+            */
+
+            'employee_no' => [
+
+                'nullable',
+
+                'string',
+
+                'max:100',
+
+                Rule::unique('employees', 'employee_no')
+                    ->ignore($employeeId),
+
+            ],
+
+            'name' => 'required|string|max:255',
+
+            'nickname' => 'nullable|string|max:255',
+
+            'email' => [
+
+                'nullable',
+
+                'email',
+
+                'max:255',
+
+                Rule::unique('employees', 'email')
+                    ->ignore($employeeId),
+
+            ],
+
+            'phone' => 'nullable|string|max:50',
+
+            'whatsapp' => 'nullable|string|max:50',
+
+            /*
+            |--------------------------------------------------------------------------
+            | Personal
+            |--------------------------------------------------------------------------
+            */
+
+            'gender' => 'nullable|in:male,female',
+
+            'birth_place' => 'nullable|string|max:100',
+
+            'birth_date' => 'nullable|date',
+
+            /*
+            |--------------------------------------------------------------------------
+            | Employment
+            |--------------------------------------------------------------------------
+            */
+
+            'join_date' => 'required|date',
+
+            'employment_status' => 'required|in:probation,contract,permanent,resign',
+
+            'work_status' => 'required|in:active,inactive',
+
+            /*
+            |--------------------------------------------------------------------------
+            | Payroll
+            |--------------------------------------------------------------------------
+            */
+
+            'basic_salary' => 'nullable|numeric|min:0',
+
+            'meal_allowance' => 'nullable|numeric|min:0',
+
+            'transport_allowance' => 'nullable|numeric|min:0',
+
+            'position_allowance' => 'nullable|numeric|min:0',
+
+            /*
+            |--------------------------------------------------------------------------
+            | Login
+            |--------------------------------------------------------------------------
+            */
+
+            'create_login' => 'nullable|boolean',
+
+            'role' => 'nullable|exists:roles,name',
+
+            /*
+            |--------------------------------------------------------------------------
+            | Photo
+            |--------------------------------------------------------------------------
+            */
+
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+
+            /*
+            |--------------------------------------------------------------------------
+            | Other
+            |--------------------------------------------------------------------------
+            */
+
+            'notes' => 'nullable|string',
+
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+
+            'employee_no' => 'Nomor Pegawai',
+
+            'name' => 'Nama Pegawai',
+
+            'nickname' => 'Nama Panggilan',
+
+            'email' => 'Email',
+
+            'phone' => 'Nomor HP',
+
+            'whatsapp' => 'WhatsApp',
+
+            'branch_id' => 'Site',
+
+            'division_id' => 'Divisi',
+
+            'position_id' => 'Jabatan',
+
+            'supervisor_employee_id' => 'Supervisor',
+
+            'manager_employee_id' => 'Manager',
+
+            'join_date' => 'Tanggal Masuk',
+
+            'employment_status' => 'Status Pegawai',
+
+            'work_status' => 'Status Kerja',
+
+            'basic_salary' => 'Gaji Pokok',
+
+            'meal_allowance' => 'Uang Makan',
+
+            'transport_allowance' => 'Uang Transport',
+
+            'position_allowance' => 'Tunjangan Jabatan',
+
+            'photo' => 'Foto',
+
+            'role' => 'Role',
+
+            'notes' => 'Catatan',
+
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+
+            'required' => ':attribute wajib diisi.',
+
+            'unique' => ':attribute sudah digunakan.',
+
+            'exists' => ':attribute tidak ditemukan.',
+
+            'email' => ':attribute tidak valid.',
+
+            'numeric' => ':attribute harus berupa angka.',
+
+            'image' => ':attribute harus berupa gambar.',
+
+            'mimes' => ':attribute harus berupa JPG, JPEG, PNG atau WEBP.',
+
+            'max' => ':attribute melebihi batas maksimum.',
+
+            'min' => ':attribute kurang dari batas minimum.',
+
+            'in' => ':attribute tidak valid.',
+
+        ];
+    }
+}

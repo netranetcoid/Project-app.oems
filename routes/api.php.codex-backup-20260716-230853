@@ -1,0 +1,16 @@
+<?php
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\AttendanceController;
+
+// Route untuk akses publik (tidak perlu login)
+Route::post('/login', [AuthController::class, 'login']);
+
+// Route yang butuh login (semuanya masuk ke middleware yang sama)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn']);
+    // Nanti bisa tambahin route lain di sini, misalnya:
+    // Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut']);
+});
