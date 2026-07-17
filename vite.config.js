@@ -5,6 +5,10 @@ import { glob } from 'glob';
 import path from 'path';
 import iconsPlugin from './vite.icons.plugin.js';
 
+// ATURAN OWNER: bundle Materialize ini adalah fondasi UI tunggal AppOEMS.
+// Jangan mengganti template/UI kit atau menghapus core asset tanpa approval
+// Owner + QA. Detailnya ada pada AGENTS.md dan docs/ui-governance-materialize.md.
+
 /**
  * Get Files from a directory
  * @param {string} query
