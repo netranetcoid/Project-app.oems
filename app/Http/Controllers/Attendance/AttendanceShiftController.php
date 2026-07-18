@@ -52,6 +52,7 @@ class AttendanceShiftController extends Controller
         'grace_out_minutes' => 'nullable|integer',
         'late_tolerance_minutes' => 'nullable|integer',
         'overtime_after_minutes' => 'nullable|integer',
+        'overtime_max_minutes' => 'nullable|integer|min:1|max:720',
         'status' => 'required',
     ]);
 
@@ -78,6 +79,8 @@ class AttendanceShiftController extends Controller
         'allow_overtime' => $request->has('allow_overtime'),
 
         'overtime_after_minutes' => $request->overtime_after_minutes ?? 0,
+        // Batas harian dibuat eksplisit dan bisa diedit HR dari master shift.
+        'overtime_max_minutes' => $request->overtime_max_minutes ?? 180,
 
         'gps_required' => $request->has('gps_required'),
         'selfie_required' => $request->has('selfie_required'),
@@ -109,9 +112,25 @@ public function edit(AttendanceShift $shift): View
 
 public function update(Request $request, AttendanceShift $shift): RedirectResponse
 {
-    return redirect()
-        ->route('attendance.shifts.index')
-        ->with('success', 'Shift berhasil diperbarui.');
+    $companyId = session('company_id');
+    abort_if($shift->company_id != $companyId, 403);
+    $request->validate([
+        'branch_id' => 'nullable|exists:branches,id', 'code' => 'required|max:20', 'name' => 'required|max:100',
+        'work_type' => 'required', 'clock_in_time' => 'required', 'clock_out_time' => 'required',
+        'work_hours' => 'required|numeric', 'overtime_after_minutes' => 'nullable|integer',
+        'overtime_max_minutes' => 'nullable|integer|min:1|max:720', 'status' => 'required',
+    ]);
+    $shift->update([
+        'branch_id' => $request->branch_id, 'code' => $request->code, 'name' => $request->name,
+        'work_type' => $request->work_type, 'clock_in_time' => $request->clock_in_time, 'clock_out_time' => $request->clock_out_time,
+        'break_start' => $request->break_start_time, 'break_end' => $request->break_end_time, 'work_hours' => $request->work_hours,
+        'grace_in_minutes' => $request->grace_in_minutes ?? 0, 'grace_out_minutes' => $request->grace_out_minutes ?? 0,
+        'late_tolerance_minutes' => $request->late_tolerance_minutes ?? 0, 'allow_overtime' => $request->has('allow_overtime'),
+        'overtime_after_minutes' => $request->overtime_after_minutes ?? 30, 'overtime_max_minutes' => $request->overtime_max_minutes ?? 180,
+        'gps_required' => $request->has('gps_required'), 'selfie_required' => $request->has('selfie_required'),
+        'photo_required' => $request->has('photo_required'), 'status' => $request->status, 'notes' => $request->notes,
+    ]);
+    return redirect()->route('attendance.shifts.index')->with('success', 'Shift berhasil diperbarui.');
 }
 
 public function destroy(AttendanceShift $shift): RedirectResponse

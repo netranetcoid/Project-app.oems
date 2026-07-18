@@ -10,6 +10,8 @@ use App\Http\Controllers\Api\MobileReleaseController;
 use App\Http\Controllers\Api\AppBillAttendanceController;
 use App\Http\Controllers\Api\EmployeeScheduleController;
 use App\Http\Controllers\Api\EmployeeKpiController;
+use App\Http\Controllers\Api\EmployeeTaskController;
+use App\Http\Controllers\Api\OvertimeAttendanceController;
 
 // Route untuk akses publik (tidak perlu login)
 // Endpoint versi; alias /login dipertahankan untuk klien lama.
@@ -37,14 +39,30 @@ Route::prefix('integrations/appbill')
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/refresh', [AuthController::class, 'refresh']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/auth/session', [AuthController::class, 'sessionStatus']);
+    Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
+});
+
+// Setelah kata sandi awal diganti, barulah seluruh data HR dapat dibuka.
+Route::middleware(['auth:sanctum', 'mobile.password.changed'])->group(function () {
     Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn']);
     Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut']);
     Route::get('/attendance/today', [AttendanceController::class, 'today']);
     Route::get('/attendance/policy', [AttendanceController::class, 'policy']);
     Route::get('/attendance/history', [AttendanceController::class, 'history']);
+    Route::get('/attendance/history/{attendance}/proof/{direction}', [AttendanceController::class, 'historyProof'])
+        ->whereIn('direction', ['in', 'out']);
+    Route::post('/overtime/check-in', [OvertimeAttendanceController::class, 'checkIn']);
+    Route::post('/overtime/check-out', [OvertimeAttendanceController::class, 'checkOut']);
+    Route::get('/overtime/today', [OvertimeAttendanceController::class, 'today']);
+    Route::get('/overtime/history', [OvertimeAttendanceController::class, 'history']);
+    Route::get('/overtime/history/{overtime}/proof/{direction}', [OvertimeAttendanceController::class, 'proof'])
+        ->whereIn('direction', ['in', 'out']);
     Route::get('/employee/me/home', EmployeeHomeController::class);
     Route::get('/employee/me/schedule', EmployeeScheduleController::class);
     Route::get('/employee/me/kpi', EmployeeKpiController::class);
+    Route::get('/employee/me/tasks', [EmployeeTaskController::class, 'index']);
+    Route::post('/employee/me/tasks/{task}/status', [EmployeeTaskController::class, 'updateStatus']);
     Route::get('/requests', [EmployeeRequestController::class, 'index']);
     Route::post('/requests', [EmployeeRequestController::class, 'store']);
     Route::get('/payrolls', [PayrollController::class, 'index']);

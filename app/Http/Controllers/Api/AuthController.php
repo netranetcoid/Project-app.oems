@@ -47,6 +47,8 @@ class AuthController extends Controller
                 'access_token' => $access->plainTextToken,
                 'refresh_token' => $refresh->plainTextToken,
                 'expires_in' => 900,
+                // Null berarti akun baru/reset masih memakai sandi sementara.
+                'must_change_password' => $user->password_changed_at === null,
                 'user' => $user,
             ],
         ]);
@@ -74,5 +76,61 @@ class AuthController extends Controller
     {
         $request->user()?->currentAccessToken()?->delete();
         return response()->json(['message' => 'Logout berhasil']);
+    }
+
+    /**
+     * Source of truth for SessionGate on an APK that was installed before the
+     * mandatory-password feature existed. This prevents an old local flag
+     * from opening operational menus with a temporary password.
+     */
+    public function sessionStatus(Request $request)
+    {
+        return response()->json(['data' => [
+            'must_change_password' => $request->user()->password_changed_at === null,
+        ]]);
+    }
+
+    /**
+     * Completes mandatory first-login onboarding. All old mobile tokens are
+     * revoked, then a fresh pair is returned so a temporary credential cannot
+     * remain valid on another device.
+     */
+    public function changePassword(Request $request)
+    {
+        $data = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'max:128', 'confirmed', 'different:current_password'],
+            'client' => ['nullable', 'string', 'max:80'],
+        ]);
+        $user = $request->user();
+
+        if (! Hash::check($data['current_password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Kata sandi saat ini tidak sesuai.'],
+            ]);
+        }
+        if (Hash::check($data['password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'password' => ['Kata sandi baru harus berbeda dari kata sandi awal.'],
+            ]);
+        }
+
+        $client = (string) ($data['client'] ?? 'ovallhr_mobile');
+        $user->update([
+            'password' => Hash::make($data['password']),
+            'password_changed_at' => now(),
+        ]);
+        // Revoke every existing mobile token. The response below is the only
+        // session that survives the password replacement.
+        $user->tokens()->delete();
+        $access = $user->createToken($client, ['mobile'], now()->addMinutes(15));
+        $refresh = $user->createToken($client . '_refresh', ['mobile:refresh'], now()->addDays(30));
+
+        return response()->json(['data' => [
+            'access_token' => $access->plainTextToken,
+            'refresh_token' => $refresh->plainTextToken,
+            'expires_in' => 900,
+            'must_change_password' => false,
+        ]]);
     }
 }

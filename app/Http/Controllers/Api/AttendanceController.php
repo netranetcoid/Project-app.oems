@@ -129,8 +129,13 @@ class AttendanceController extends Controller
         return response()->json(['data' => [
             'clock_in' => optional($attendance?->clock_in_at)->format('H:i'),
             'clock_out' => optional($attendance?->clock_out_at)->format('H:i'),
+            // Timestamp ISO membuat APK dapat menghitung durasi berjalan tanpa
+            // perlu terus-menerus memanggil server setiap menit.
+            'clock_in_at' => optional($attendance?->clock_in_at)->toIso8601String(),
+            'clock_out_at' => optional($attendance?->clock_out_at)->toIso8601String(),
             'shift' => $attendance?->shift?->name ?? 'Belum ada shift',
             'work_hours' => $this->workHours($attendance),
+            'work_minutes' => $this->workMinutes($attendance),
             'is_clocked_in' => (bool) $attendance?->clock_in_at,
             'is_clocked_out' => (bool) $attendance?->clock_out_at,
         ]]);
@@ -155,8 +160,9 @@ class AttendanceController extends Controller
     }
 
     /**
-     * Personal history never includes selfie files or raw GPS. It is safe for
-     * the employee app and sufficient for a work-summary screen.
+     * History exposes only the employee's own evidence URL. Raw coordinates
+     * remain private, while the photo itself is served by an authenticated
+     * endpoint below (never as a guessable public-storage URL).
      */
     public function history(Request $request)
     {
@@ -169,15 +175,45 @@ class AttendanceController extends Controller
             ->limit(90)
             ->get()
             ->map(fn (Attendance $attendance): array => [
+                'id' => $attendance->id,
                 'date' => optional($attendance->date)->toDateString(),
                 'clock_in' => optional($attendance->clock_in_at)->format('H:i'),
                 'clock_out' => optional($attendance->clock_out_at)->format('H:i'),
                 'shift' => $attendance->shift?->name ?? 'Tanpa shift',
                 'status' => $attendance->status ?? 'present',
                 'work_hours' => $this->workHours($attendance),
+                'in_selfie_url' => $attendance->in_photo
+                    ? url("/api/v1/attendance/history/{$attendance->id}/proof/in") : null,
+                'out_selfie_url' => $attendance->out_photo
+                    ? url("/api/v1/attendance/history/{$attendance->id}/proof/out") : null,
             ]);
 
         return response()->json(['items' => $items]);
+    }
+
+    /**
+     * Streams a selfie only to its employee. HR review has a separate web
+     * route; this endpoint deliberately never returns GPS or another user's
+     * proof. Retention policy is enforced even when an old URL is cached.
+     */
+    public function historyProof(Request $request, Attendance $attendance, string $direction)
+    {
+        $employee = $this->proofs->employeeFor($request->user());
+        abort_unless(
+            (int) $attendance->company_id === (int) $employee->company_id
+                && (int) $attendance->employee_id === (int) $employee->id,
+            403
+        );
+        abort_unless(in_array($direction, ['in', 'out'], true), 404);
+        abort_if($attendance->retention_until && $attendance->retention_until->isPast(), 410,
+            'Masa simpan bukti presensi telah berakhir.');
+
+        $path = $direction === 'in' ? $attendance->in_photo : $attendance->out_photo;
+        abort_unless($path && Storage::disk('public')->exists($path), 404, 'Bukti selfie tidak tersedia.');
+
+        return Storage::disk('public')->response($path, null, [
+            'Cache-Control' => 'private, no-store, max-age=0',
+        ]);
     }
 
     private function validatedProof(Request $request, bool $selfieRequired): array
@@ -231,12 +267,16 @@ class AttendanceController extends Controller
 
     private function workHours(?Attendance $attendance): string
     {
-        if (!$attendance?->clock_in_at) {
-            return '00:00';
+        $minutes = $this->workMinutes($attendance);
+        return sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
+    }
+
+    private function workMinutes(?Attendance $attendance): int
+    {
+        if (! $attendance?->clock_in_at) {
+            return 0;
         }
 
-        $end = $attendance->clock_out_at ?: now();
-        $minutes = max(0, $attendance->clock_in_at->diffInMinutes($end));
-        return sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
+        return max(0, $attendance->clock_in_at->diffInMinutes($attendance->clock_out_at ?: now()));
     }
 }

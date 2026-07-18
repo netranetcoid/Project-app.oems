@@ -378,6 +378,12 @@
 
                         </div>
 
+                        <div class="col-md-3">
+                            <label class="form-label">Maksimum Lembur / Hari (Menit)</label>
+                            <input type="number" name="overtime_max_minutes" value="180" min="1" max="720" class="form-control">
+                            <small class="text-muted">Default 180 menit / 3 jam.</small>
+                        </div>
+
                         {{-- Status --}}
                         <div class="col-md-3">
 
