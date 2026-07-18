@@ -4,6 +4,7 @@ use App\Http\Middleware\EnsureCompanySelected;
 use App\Http\Middleware\SetPermissionCompanyContext;
 use App\Http\Middleware\AuditMutation;
 use App\Http\Middleware\EnsureAppBillIntegrationRequest;
+use App\Http\Middleware\EnsureMobilePasswordChanged;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -28,6 +29,11 @@ return Application::configure(basePath: dirname(__DIR__))
       'permission.company.context' => SetPermissionCompanyContext::class,
       'audit.mutation' => AuditMutation::class,
       'appbill.integration' => EnsureAppBillIntegrationRequest::class,
+      // Alias singular dipertahankan sementara untuk route APK lama yang
+      // pernah memakai `mobile.password.change`; canonical di API baru adalah
+      // `mobile.password.changed`.
+      'mobile.password.change' => EnsureMobilePasswordChanged::class,
+      'mobile.password.changed' => EnsureMobilePasswordChanged::class,
 
       'role' => RoleMiddleware::class,
       'permission' => PermissionMiddleware::class,
