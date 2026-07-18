@@ -4,6 +4,12 @@
 
 @section('content')
 <div class="container-fluid">
+  @if($errors->any())
+    <div class="alert alert-danger" role="alert">
+      <strong>Rilis belum disimpan.</strong>
+      <ul class="mb-0 mt-2">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+    </div>
+  @endif
   <div class="card mb-4">
     <div class="card-header"><h4 class="mb-1">Mobile Release Center</h4><p class="mb-0 text-muted">Kelola versi OvallHR, update wajib, dan feature toggle dari AppOEMS.</p></div>
     <div class="card-body">

@@ -30,7 +30,10 @@ class MobileReleaseCenterController extends Controller
             'download_url' => ['nullable', 'url', 'max:2048'],
             // APK boleh diunggah langsung oleh owner agar link update tidak
             // bergantung pada Google Drive atau layanan file pihak ketiga.
-            'apk_file' => ['nullable', 'file', 'max:204800', 'mimetypes:application/vnd.android.package-archive,application/octet-stream'],
+            // Sebagian browser/PHP mendeteksi APK sebagai application/zip,
+            // bukan Android APK. Ekstensi .apk adalah kontrak upload, lalu
+            // Android tetap memverifikasi signature saat instalasi.
+            'apk_file' => ['nullable', 'file', 'max:204800', 'extensions:apk'],
             'release_notes' => ['nullable', 'string', 'max:5000'],
             'is_force_update' => ['nullable', 'boolean'],
             'publish_now' => ['nullable', 'boolean'],
