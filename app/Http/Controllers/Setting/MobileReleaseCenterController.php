@@ -45,10 +45,15 @@ class MobileReleaseCenterController extends Controller
                 'mobile-releases/' . session('company_id'),
                 'public'
             );
-            // Mobile membuka URL di browser luar aplikasi, sehingga harus
-            // absolut HTTPS; path relatif /storage/... tidak cukup untuk APK.
-            $downloadUrl = rtrim((string) config('app.url'), '/')
-                . Storage::disk('public')->url($path);
+            // `Storage::url()` dapat menghasilkan URL absolut bila disk public
+            // sudah memakai APP_URL (konfigurasi Laravel bawaan). Jangan
+            // menempelkan APP_URL untuk kedua kali karena hasilnya menjadi
+            // `https://oems...https://oems...` dan Android tidak dapat membuka
+            // tautan rilis. Hanya path relatif yang perlu diberi base URL.
+            $storageUrl = Storage::disk('public')->url($path);
+            $downloadUrl = str_starts_with($storageUrl, 'http://') || str_starts_with($storageUrl, 'https://')
+                ? $storageUrl
+                : rtrim((string) config('app.url'), '/') . '/' . ltrim($storageUrl, '/');
         }
         MobileAppRelease::updateOrCreate(
             ['company_id' => (int) session('company_id'), 'platform' => 'android', 'version_code' => $data['version_code']],
