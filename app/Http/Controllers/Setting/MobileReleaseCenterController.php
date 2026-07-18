@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class MobileReleaseCenterController extends Controller
 {
@@ -41,8 +42,14 @@ class MobileReleaseCenterController extends Controller
         $publish = $request->boolean('publish_now');
         $downloadUrl = $data['download_url'] ?? null;
         if ($request->hasFile('apk_file')) {
-            $path = $request->file('apk_file')->store(
+            // Android APK secara internal memang arsip ZIP. `store()` menebak
+            // ekstensi lewat MIME lalu dapat menyimpannya sebagai `.zip`, yang
+            // membuat ponsel membuka aplikasi arsip, bukan pemasang Android.
+            // Nama fisik selalu dipaksa `.apk`; signature tetap diverifikasi
+            // Android saat instalasi.
+            $path = $request->file('apk_file')->storeAs(
                 'mobile-releases/' . session('company_id'),
+                Str::random(40) . '.apk',
                 'public'
             );
             // `Storage::url()` dapat menghasilkan URL absolut bila disk public
