@@ -17,7 +17,13 @@ class ContractTemplateService
     {
         $type = $contract->contractType;
         $settings = is_array($type?->settings) ? $type->settings : [];
-        $body = trim((string) ($type?->template_body ?? ''));
+        // Prioritaskan snapshot yang diedit HR pada kontrak pegawai. Template
+        // master hanya dipakai oleh kontrak lama yang belum punya dokumen sendiri.
+        $body = trim((string) ($contract->contract_body ?? ''));
+
+        if ($body === '') {
+            $body = trim((string) ($type?->template_body ?? ''));
+        }
 
         if ($body === '') {
             $body = (string) ($settings['default_addendum'] ?? '');

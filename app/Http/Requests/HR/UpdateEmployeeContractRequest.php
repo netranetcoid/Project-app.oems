@@ -23,6 +23,8 @@ class UpdateEmployeeContractRequest extends FormRequest
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'duration_month' => ['nullable', 'integer', 'min:1', 'max:60'],
             'letter_no' => ['nullable', 'string', 'max:100'],
+            // Dokumen yang diedit di layar kontrak disimpan pada versi kontrak ini.
+            'contract_body' => ['nullable', 'string', 'max:50000'],
             'status' => ['required', 'in:draft,waiting,approved,signed,active,expired,terminated,extended'],
             'notes' => ['nullable', 'string', 'max:10000'],
         ];

@@ -24,6 +24,9 @@ class StoreEmployeeContractRequest extends FormRequest
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'duration_month' => ['nullable', 'integer', 'min:1', 'max:60'],
             'letter_no' => ['nullable', 'string', 'max:100'],
+            // Isi surat merupakan snapshot dokumen per karyawan. HR boleh
+            // menyesuaikan pasal tanpa mengubah template master untuk kontrak lain.
+            'contract_body' => ['nullable', 'string', 'max:50000'],
             'notes' => ['nullable', 'string', 'max:10000'],
         ];
     }

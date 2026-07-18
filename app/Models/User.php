@@ -32,6 +32,8 @@ class User extends Authenticatable
     'position_id',
     'employee_id',
     'name',
+    // Username dipakai login OvallHR (NIK/employee number) selain email.
+    'username',
     'email',
     'password',
     'phone',

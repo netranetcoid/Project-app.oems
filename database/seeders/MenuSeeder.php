@@ -27,6 +27,13 @@ class MenuSeeder extends Seeder
                 'master-request-policy', 'hr-leave', 'hr-permission-sick',
                 'hr-overtime', 'hr-finance-requests', 'hr-business-trips',
                 'hr-vehicles',
+                // Semua menu berikut adalah kontrol yang dibaca/dipakai APK
+                // OvallHR. Mereka dipusatkan ke satu halaman agar HR tidak
+                // perlu mencari di tiga kelompok sidebar yang berbeda.
+                'hr-settings', 'master-attendance-shifts',
+                'master-shift-assignments', 'master-compensation',
+                'master-kpi-aspects', 'attendance', 'hr-requests',
+                'hr-payroll', 'hr-kpi', 'mobile-release-center',
                 // Parent/child legacy ini dahulu dibuat oleh compatibility
                 // seeder dan menjadi sumber menu System ganda.
                 'settings', 'settings.role-permission', 'settings.user-access',
@@ -62,6 +69,21 @@ class MenuSeeder extends Seeder
             'label' => 'Human Resource',
             'icon' => 'ri ri-team-line',
             'sort_order' => 3,
+            'level' => 1,
+        ]);
+
+        // Ini sengaja berupa satu menu langsung (bukan parent dengan banyak
+        // submenu). Seluruh pintasan dan approval OvallHR ada di dalam page
+        // Control Center sehingga sidebar tetap singkat di layar laptop/HP.
+        $this->upsertMenu([
+            'module_id' => $modules['attendance'] ?? null,
+            'code' => 'ovallhr-control-center',
+            'name' => 'OvallHR Control',
+            'label' => 'OvallHR Control',
+            'icon' => 'ri ri-smartphone-line',
+            'route_name' => 'ovallhr.control-center.index',
+            'permission_name' => 'attendance.view',
+            'sort_order' => 4,
             'level' => 1,
         ]);
 
@@ -134,6 +156,19 @@ class MenuSeeder extends Seeder
         $this->child($modules['setting'] ?? null, $system, 'role-permission', 'Role & Permission', 'settings.role-permission.index', 'roles.view', 2, 'ri ri-shield-keyhole-line');
         $this->child($modules['setting'] ?? null, $system, 'integration-center', 'Integrasi, Audit & Health', 'settings.integrations.index', 'integration.view', 3, 'ri ri-shield-check-line');
         $this->child($modules['setting'] ?? null, $system, 'mobile-release-center', 'Mobile Release Center', 'settings.mobile-releases.index', 'mobile-release.view', 4, 'ri ri-smartphone-line');
+
+        // child() di atas mengaktifkan ulang menu sistem saat upsert. Jalankan
+        // penyederhanaan di akhir supaya hanya OvallHR Control yang terlihat
+        // pada sidebar; route asal tetap hidup sebagai tujuan kartu di pusat.
+        DB::table('menus')
+            ->where('is_system', true)
+            ->whereIn('code', [
+                'hr-settings', 'master-attendance-shifts',
+                'master-shift-assignments', 'master-compensation',
+                'master-kpi-aspects', 'attendance', 'hr-requests',
+                'hr-payroll', 'hr-kpi', 'mobile-release-center',
+            ])
+            ->update(['is_active' => false, 'updated_at' => now()]);
     }
 
     private function child(?int $moduleId, int $parentId, string $code, string $name, string $route, string $permission, int $sort, string $icon): int

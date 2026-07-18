@@ -44,39 +44,44 @@ class DeveloperSeeder extends Seeder
         |--------------------------------------------------------------------------
         */
 
-        $developer = User::updateOrCreate(
+        $developer = User::withTrashed()
+            ->where('email', 'developer@oems.local')
+            ->first();
 
-            [
+        $attributes = [
+            'company_id' => $company->id,
+            'branch_id' => $branch?->id,
+            'name' => 'Developer',
+            'username' => 'developer',
+            'language' => 'id',
+            'timezone' => 'Asia/Jakarta',
+            'is_super_admin' => true,
+            'is_developer' => true,
+            'is_active' => true,
+            'status' => 'active',
+            'deleted_at' => null,
+        ];
+
+        if (! $developer) {
+            // Password tidak ditanam di source. VPS wajib mengisi environment
+            // ini sebelum seed supaya akun awal tidak memakai kredensial umum.
+            $bootstrapPassword = (string) env('OEMS_BOOTSTRAP_PASSWORD', '');
+            if (app()->environment('production') && strlen($bootstrapPassword) < 12) {
+                throw new \RuntimeException('Set OEMS_BOOTSTRAP_PASSWORD minimal 12 karakter sebelum menjalankan db:seed di production.');
+            }
+
+            $bootstrapPassword = $bootstrapPassword ?: 'Osm!Setup#2026';
+            $developer = User::create($attributes + [
                 'email' => 'developer@oems.local',
-            ],
-
-            [
-
-                'company_id' => $company->id,
-
-                'branch_id' => $branch?->id,
-
-                'name' => 'Developer',
-
-                'username' => 'developer',
-
-                'password' => Hash::make('12345678'),
-
-                'language' => 'id',
-
-                'timezone' => 'Asia/Jakarta',
-
-                'is_super_admin' => true,
-
-                'is_developer' => true,
-
-                'is_active' => true,
-
-                'status' => 'active',
-
-            ]
-
-        );
+                'password' => Hash::make($bootstrapPassword),
+                'password_changed_at' => now(),
+            ]);
+            $this->command?->warn('Akun developer bootstrap dibuat. Ganti password segera setelah login pertama.');
+        } else {
+            // Idempoten: seed ulang memperbaiki master/pivot, tetapi tidak
+            // pernah mengganti password atau token pengguna yang sudah hidup.
+            $developer->forceFill($attributes)->save();
+        }
 
         // Pastikan akun developer punya akses pivot yang sama dengan
         // users.company_id, sehingga middleware tidak membuat redirect loop.

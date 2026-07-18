@@ -18,12 +18,14 @@ class AppBillIntegrationSeeder extends Seeder
         foreach (Company::query()->active()->get() as $company) {
             // firstOrCreate menjaga tanggal cutover dan limit yang sudah
             // diedit owner agar tidak kembali ke default saat seeder diulang.
-            IntegrationConnection::firstOrCreate(
+            $connection = IntegrationConnection::firstOrCreate(
                 ['company_id' => $company->id, 'provider' => 'appbill'],
                 [
                     'name' => 'AppBill',
                     'mode' => 'mock',
-                    'base_url' => null,
+                    // Base URL resmi AppBill. Mode tetap mock sampai owner
+                    // mengisi/merotasi token-HMAC dan menyetujui cutover.
+                    'base_url' => 'https://ovallfiber.osm.net.id',
                     'auth_type' => 'none',
                     'is_enabled' => true,
                     'allow_inbound' => true,
@@ -40,6 +42,12 @@ class AppBillIntegrationSeeder extends Seeder
                     ],
                 ]
             );
+
+            // Seeder tidak menimpa URL/token owner yang sudah hidup, tetapi
+            // mengisi base URL resmi bila koneksi mock lama masih kosong.
+            if (blank($connection->base_url)) {
+                $connection->update(['base_url' => 'https://ovallfiber.osm.net.id']);
+            }
         }
     }
 }

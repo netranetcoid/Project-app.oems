@@ -13,6 +13,7 @@ use App\Services\Observability\SystemHealthService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Support\Str;
 
 class IntegrationCenterController extends Controller
 {
@@ -157,6 +158,28 @@ class IntegrationCenterController extends Controller
                 ? "Tes dummy berhasil. Event {$event->event_id} diterima."
                 : "Tes dummy gagal: {$event->last_error}"
         );
+    }
+
+    /**
+     * Kredensial integrasi hanya dapat dirotasi oleh owner/super admin. Nilai
+     * hanya di-flash sekali ke session, sementara database menyimpannya dengan
+     * encrypted cast. Rotasi tidak pernah mengaktifkan mode LIVE otomatis.
+     */
+    public function generateCredentials(Request $request, IntegrationConnection $connection): RedirectResponse
+    {
+        $this->ensureCompany($connection);
+        abort_unless($request->user()->is_owner || $request->user()->is_super_admin, 403);
+
+        $credentials = array_merge($connection->credentials ?? [], [
+            'api_token' => Str::random(64),
+            'hmac_secret' => bin2hex(random_bytes(32)),
+        ]);
+        $connection->update(['credentials' => $credentials]);
+
+        return back()->with('appbill_generated_credentials', [
+            'api_token' => $credentials['api_token'],
+            'hmac_secret' => $credentials['hmac_secret'],
+        ])->with('success', 'Token dan HMAC baru dibuat. Salin sekarang; nilai tidak akan ditampilkan lagi.');
     }
 
     public function dispatch(): RedirectResponse

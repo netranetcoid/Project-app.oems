@@ -45,7 +45,20 @@ class MobileReleaseController extends Controller
     {
         $companyId = (int) optional($request->user())->company_id;
         abort_unless($companyId, 403);
+        $company = Company::query()->findOrFail($companyId);
+        $settings = is_array($company->settings) ? $company->settings : [];
+        // Default ini menjaga APK yang baru dipasang tetap punya brand konsisten
+        // ketika owner belum pernah membuka pengaturan branding remote.
+        $branding = array_merge([
+            'app_name' => 'OvallHR',
+            'company_label' => $company->legal_name ?: $company->name,
+            'welcome_text' => 'Employee Self Service',
+            'primary_color' => '#2563EB',
+            'secondary_color' => '#0F2747',
+            'logo_url' => null,
+        ], is_array($settings['mobile_branding'] ?? null) ? $settings['mobile_branding'] : []);
         return response()->json(['data' => [
+            'branding' => $branding,
             'features' => MobileFeatureFlag::forCompany($companyId)->get()
                 ->map(fn (MobileFeatureFlag $flag): array => [
                     'key' => $flag->key,

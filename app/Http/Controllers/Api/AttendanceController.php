@@ -136,6 +136,50 @@ class AttendanceController extends Controller
         ]]);
     }
 
+    /**
+     * Policy is read-only guidance for the mobile capture screen. The server
+     * still validates GPS and retention again during check-in/check-out.
+     */
+    public function policy(Request $request)
+    {
+        $employee = $this->proofs->employeeFor($request->user());
+        $assignment = $this->proofs->assignment($employee, now());
+        $policy = $this->proofs->policy($employee, $assignment);
+        $office = $assignment?->branch ?: $employee->branch;
+
+        return response()->json(['data' => [
+            ...$policy,
+            'office_name' => $office?->name ?? $employee->company?->name ?? 'Kantor PT OSM',
+            'shift_name' => $assignment?->shift?->name ?? 'Belum ada shift',
+        ]]);
+    }
+
+    /**
+     * Personal history never includes selfie files or raw GPS. It is safe for
+     * the employee app and sufficient for a work-summary screen.
+     */
+    public function history(Request $request)
+    {
+        $employee = $this->proofs->employeeFor($request->user());
+        $items = Attendance::query()
+            ->with('shift')
+            ->where('company_id', $employee->company_id)
+            ->where('employee_id', $employee->id)
+            ->latest('date')
+            ->limit(90)
+            ->get()
+            ->map(fn (Attendance $attendance): array => [
+                'date' => optional($attendance->date)->toDateString(),
+                'clock_in' => optional($attendance->clock_in_at)->format('H:i'),
+                'clock_out' => optional($attendance->clock_out_at)->format('H:i'),
+                'shift' => $attendance->shift?->name ?? 'Tanpa shift',
+                'status' => $attendance->status ?? 'present',
+                'work_hours' => $this->workHours($attendance),
+            ]);
+
+        return response()->json(['items' => $items]);
+    }
+
     private function validatedProof(Request $request, bool $selfieRequired): array
     {
         $data = $request->validate([

@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\EmployeeRequestController;
 use App\Http\Controllers\Api\PayrollController;
 use App\Http\Controllers\Api\MobileReleaseController;
 use App\Http\Controllers\Api\AppBillAttendanceController;
+use App\Http\Controllers\Api\EmployeeScheduleController;
+use App\Http\Controllers\Api\EmployeeKpiController;
 
 // Route untuk akses publik (tidak perlu login)
 // Endpoint versi; alias /login dipertahankan untuk klien lama.
@@ -38,7 +40,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/attendance/check-in', [AttendanceController::class, 'checkIn']);
     Route::post('/attendance/check-out', [AttendanceController::class, 'checkOut']);
     Route::get('/attendance/today', [AttendanceController::class, 'today']);
+    Route::get('/attendance/policy', [AttendanceController::class, 'policy']);
+    Route::get('/attendance/history', [AttendanceController::class, 'history']);
     Route::get('/employee/me/home', EmployeeHomeController::class);
+    Route::get('/employee/me/schedule', EmployeeScheduleController::class);
+    Route::get('/employee/me/kpi', EmployeeKpiController::class);
     Route::get('/requests', [EmployeeRequestController::class, 'index']);
     Route::post('/requests', [EmployeeRequestController::class, 'store']);
     Route::get('/payrolls', [PayrollController::class, 'index']);

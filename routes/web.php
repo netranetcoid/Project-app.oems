@@ -77,6 +77,33 @@ Route::middleware([
     ->middleware('permission:dashboard.view')
     ->name('dashboard');
 
+  /*
+  |--------------------------------------------------------------------------
+  | OvallHR Control Center
+  |--------------------------------------------------------------------------
+  | Satu pintu operasional untuk seluruh data yang dibaca atau dikendalikan
+  | oleh APK OvallHR. Route modul asal tetap dipertahankan demi kompatibilitas
+  | bookmark lama, tetapi sidebar hanya perlu menampilkan pusat ini.
+  */
+  Route::get('/ovallhr-control', [\App\Http\Controllers\OvallHr\OvallHrControlCenterController::class, 'index'])
+    ->middleware('permission:attendance.view')
+    ->name('ovallhr.control-center.index');
+  Route::post('/ovallhr-control/announcements', [\App\Http\Controllers\OvallHr\OvallHrControlCenterController::class, 'storeAnnouncement'])
+    ->middleware('permission:mobile-release.manage')
+    ->name('ovallhr.control-center.announcements.store');
+  Route::post('/ovallhr-control/announcements/{announcement}/toggle', [\App\Http\Controllers\OvallHr\OvallHrControlCenterController::class, 'toggleAnnouncement'])
+    ->middleware('permission:mobile-release.manage')
+    ->name('ovallhr.control-center.announcements.toggle');
+  Route::put('/ovallhr-control/branding', [\App\Http\Controllers\OvallHr\OvallHrControlCenterController::class, 'updateBranding'])
+    ->middleware('permission:mobile-release.manage')
+    ->name('ovallhr.control-center.branding.update');
+  Route::get('/ovallhr-control/preview', [\App\Http\Controllers\OvallHr\OvallHrControlCenterController::class, 'preview'])
+    ->middleware('permission:mobile-release.view')
+    ->name('ovallhr.control-center.preview');
+  Route::put('/ovallhr-control/birthday', [\App\Http\Controllers\OvallHr\OvallHrControlCenterController::class, 'updateBirthdaySettings'])
+    ->middleware('permission:mobile-release.manage')
+    ->name('ovallhr.control-center.birthday.update');
+
   Route::prefix('settings')->name('settings.')->group(function () {
     Route::get('/user-access', [UserAccessController::class, 'index'])
       ->middleware('permission:users.view')
@@ -147,6 +174,9 @@ Route::middleware([
     Route::put('/integrations/{connection}', [\App\Http\Controllers\Setting\IntegrationCenterController::class, 'update'])
       ->middleware('permission:integration.manage')
       ->name('integrations.update');
+    Route::post('/integrations/{connection}/credentials', [\App\Http\Controllers\Setting\IntegrationCenterController::class, 'generateCredentials'])
+      ->middleware('permission:integration.manage')
+      ->name('integrations.credentials');
     Route::post('/integrations/test', [\App\Http\Controllers\Setting\IntegrationCenterController::class, 'queueTest'])
       ->middleware('permission:integration.dispatch')
       ->name('integrations.test');
@@ -280,8 +310,20 @@ Route::prefix('attendance')
     ->group(function () {
 
     Route::get('/', [\App\Http\Controllers\Attendance\AttendanceController::class, 'index'])
-    ->middleware('permission:attendance.shift.view')
+    ->middleware('permission:attendance.view')
     ->name('index');
+
+        // Dashboard review HR. Bukti selfie dibuka melalui route terproteksi
+        // agar hanya user berizin absensi yang dapat melihatnya dari AppOEMS.
+        Route::get('/records/{attendance}/proof/{direction}', [\App\Http\Controllers\Attendance\AttendanceController::class, 'proof'])
+            ->middleware('permission:attendance.view')
+            ->name('records.proof');
+        Route::post('/records/{attendance}/approve', [\App\Http\Controllers\Attendance\AttendanceController::class, 'approve'])
+            ->middleware('permission:attendance.update')
+            ->name('records.approve');
+        Route::post('/records/{attendance}/reject', [\App\Http\Controllers\Attendance\AttendanceController::class, 'reject'])
+            ->middleware('permission:attendance.update')
+            ->name('records.reject');
 
         Route::get('/shifts', [\App\Http\Controllers\Attendance\AttendanceShiftController::class, 'index'])
             ->middleware('permission:attendance.shift.view')

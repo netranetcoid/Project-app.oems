@@ -25,6 +25,14 @@
 @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
 @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
 @if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
+@if(session('appbill_generated_credentials'))
+  <div class="alert alert-warning">
+    <div class="fw-bold mb-2">Simpan kredensial AppBill sekarang — hanya tampil sekali.</div>
+    <div class="mb-1">API token: <code class="text-break">{{ data_get(session('appbill_generated_credentials'),'api_token') }}</code></div>
+    <div>HMAC secret: <code class="text-break">{{ data_get(session('appbill_generated_credentials'),'hmac_secret') }}</code></div>
+    <div class="small mt-2">Kirim melalui kanal aman ke pengembang AppBill; jangan simpan di chat, screenshot, atau dokumen publik.</div>
+  </div>
+@endif
 
 <div class="alert alert-primary d-flex align-items-start gap-3">
   <i class="ri ri-shield-check-line fs-4"></i>
@@ -84,6 +92,12 @@
             <label class="form-label">HMAC secret</label>
             <input class="form-control" type="password" name="hmac_secret" autocomplete="new-password" placeholder="Kosongkan untuk mempertahankan secret lama">
           </div>
+          @if(auth()->user()->is_owner || auth()->user()->is_super_admin)
+          <div class="col-12 appbill-live-field">
+            <button type="submit" form="appbillCredentialsForm" class="btn btn-outline-warning btn-sm"><i class="ri ri-key-2-line me-1"></i>Buat / Rotasi Token Dua Arah</button>
+            <span class="small text-muted ms-2">Owner-only; token dan HMAC ditampilkan sekali.</span>
+          </div>
+          @endif
           <div class="col-md-6 appbill-live-field">
             <label class="form-label">Path webhook absensi</label>
             <input class="form-control" name="attendance_webhook_path" value="{{ old('attendance_webhook_path',data_get($connection->settings,'attendance_webhook_path','/api/integrations/attendance/webhook')) }}">
@@ -135,6 +149,9 @@
             <button class="btn btn-primary">Simpan Pengaturan</button>
           </div>
         </form>
+        @if(auth()->user()->is_owner || auth()->user()->is_super_admin)
+          <form id="appbillCredentialsForm" method="POST" action="{{ route('settings.integrations.credentials',$connection) }}" onsubmit="return confirm('Rotasi token akan membatalkan token lama. Lanjutkan hanya bila AppBill siap menerima kredensial baru.');">@csrf</form>
+        @endif
         @endcan
 
         @can('integration.dispatch')

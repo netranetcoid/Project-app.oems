@@ -31,7 +31,9 @@ class EmployeeUserService
 
             'name' => $data['name'],
 
-            'username' => $data['username'] ?? $data['email'],
+            // Default username adalah nomor pegawai/NIK sehingga karyawan
+            // tidak wajib mengingat email perusahaan untuk login OvallHR.
+            'username' => $data['username'] ?? $data['employee_no'] ?? $data['email'],
 
             'email' => $data['email'],
 

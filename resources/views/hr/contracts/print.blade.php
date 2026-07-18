@@ -781,6 +781,12 @@ Kedua belah pihak sepakat mengikatkan diri dalam Perjanjian Kerja ini dengan ket
 
 </p>
 
+{{-- Jika HR sudah menyimpan dokumen sendiri, PDF mencetak snapshot itu persis
+     (dengan token data pegawai yang aman). Kontrak lama tetap memakai naskah baku. --}}
+@if(trim((string) $contract->contract_body) !== '')
+    {!! $addendum !!}
+@else
+
 <!-- ================= PASAL 1 ================= -->
 
 <div class="article">
@@ -1332,7 +1338,9 @@ Perjanjian ini mulai berlaku sejak tanggal ditandatangani dan dibuat dalam dua r
 
 </p>
 
-@if(!empty($addendum))
+@endif
+
+@if(trim((string) $contract->contract_body) === '' && !empty($addendum))
 <div class="article">
     <h2>LAMPIRAN</h2>
     <h3>KETENTUAN KHUSUS TEMPLATE</h3>
