@@ -8,6 +8,7 @@ use App\Models\MobileFeatureFlag;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Storage;
 
 class MobileReleaseCenterController extends Controller
 {
@@ -27,17 +28,31 @@ class MobileReleaseCenterController extends Controller
             'version_code' => ['required', 'integer', 'min:1'],
             'minimum_version_code' => ['required', 'integer', 'min:1'],
             'download_url' => ['nullable', 'url', 'max:2048'],
+            // APK boleh diunggah langsung oleh owner agar link update tidak
+            // bergantung pada Google Drive atau layanan file pihak ketiga.
+            'apk_file' => ['nullable', 'file', 'max:204800', 'mimetypes:application/vnd.android.package-archive,application/octet-stream'],
             'release_notes' => ['nullable', 'string', 'max:5000'],
             'is_force_update' => ['nullable', 'boolean'],
             'publish_now' => ['nullable', 'boolean'],
         ]);
         $publish = $request->boolean('publish_now');
+        $downloadUrl = $data['download_url'] ?? null;
+        if ($request->hasFile('apk_file')) {
+            $path = $request->file('apk_file')->store(
+                'mobile-releases/' . session('company_id'),
+                'public'
+            );
+            // Mobile membuka URL di browser luar aplikasi, sehingga harus
+            // absolut HTTPS; path relatif /storage/... tidak cukup untuk APK.
+            $downloadUrl = rtrim((string) config('app.url'), '/')
+                . Storage::disk('public')->url($path);
+        }
         MobileAppRelease::updateOrCreate(
             ['company_id' => (int) session('company_id'), 'platform' => 'android', 'version_code' => $data['version_code']],
             [
                 'version_name' => $data['version_name'],
                 'minimum_version_code' => $data['minimum_version_code'],
-                'download_url' => $data['download_url'] ?? null,
+                'download_url' => $downloadUrl,
                 'release_notes' => $data['release_notes'] ?? null,
                 'is_force_update' => $request->boolean('is_force_update'),
                 'status' => $publish ? 'published' : 'draft',

@@ -7,11 +7,12 @@
   <div class="card mb-4">
     <div class="card-header"><h4 class="mb-1">Mobile Release Center</h4><p class="mb-0 text-muted">Kelola versi OvallHR, update wajib, dan feature toggle dari AppOEMS.</p></div>
     <div class="card-body">
-      <form method="POST" action="{{ route('settings.mobile-releases.store') }}" class="row g-3">@csrf
+      <form method="POST" action="{{ route('settings.mobile-releases.store') }}" enctype="multipart/form-data" class="row g-3">@csrf
         <div class="col-md-3"><label class="form-label">Versi</label><input name="version_name" class="form-control" placeholder="1.0.1" required></div>
         <div class="col-md-2"><label class="form-label">Version code</label><input name="version_code" type="number" min="1" class="form-control" required></div>
         <div class="col-md-2"><label class="form-label">Min. version</label><input name="minimum_version_code" type="number" min="1" value="1" class="form-control" required></div>
-        <div class="col-md-5"><label class="form-label">URL APK / Play Store</label><input name="download_url" type="url" class="form-control" placeholder="https://..."></div>
+        <div class="col-md-5"><label class="form-label">URL APK / Play Store</label><input name="download_url" type="url" class="form-control" placeholder="https://..."> <small class="text-muted">Isi URL eksternal, atau unggah APK di bawah.</small></div>
+        <div class="col-md-5"><label class="form-label">Unggah APK OvallHR</label><input name="apk_file" type="file" accept=".apk,application/vnd.android.package-archive" class="form-control"> <small class="text-muted">Maks. 200 MB. File akan disimpan di VPS AppOEMS.</small></div>
         <div class="col-md-8"><label class="form-label">Catatan rilis</label><textarea name="release_notes" class="form-control" rows="2" placeholder="Perbaikan dan fitur baru..."></textarea></div>
         <div class="col-md-4 d-flex align-items-end gap-3"><label class="form-check"><input class="form-check-input" type="checkbox" name="is_force_update" value="1"><span class="form-check-label">Update wajib</span></label><button name="publish_now" value="1" class="btn btn-primary">Publikasi Rilis</button><button class="btn btn-outline-secondary">Simpan Draft</button></div>
       </form>
