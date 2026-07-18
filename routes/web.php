@@ -177,6 +177,12 @@ Route::middleware([
     Route::post('/integrations/{connection}/credentials', [\App\Http\Controllers\Setting\IntegrationCenterController::class, 'generateCredentials'])
       ->middleware('permission:integration.manage')
       ->name('integrations.credentials');
+    Route::post('/integrations/{connection}/credentials/reveal', [\App\Http\Controllers\Setting\IntegrationCenterController::class, 'revealCredentials'])
+      ->middleware('permission:integration.manage')
+      ->name('integrations.credentials.reveal');
+    Route::post('/integrations/{connection}/test-live-direct', [\App\Http\Controllers\Setting\IntegrationCenterController::class, 'testLiveDirect'])
+      ->middleware('permission:integration.manage')
+      ->name('integrations.test-live-direct');
     Route::post('/integrations/test', [\App\Http\Controllers\Setting\IntegrationCenterController::class, 'queueTest'])
       ->middleware('permission:integration.dispatch')
       ->name('integrations.test');

@@ -14,6 +14,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Hash;
+use Throwable;
 
 class IntegrationCenterController extends Controller
 {
@@ -83,10 +85,9 @@ class IntegrationCenterController extends Controller
         $data = $request->validate([
             'mode' => ['required', 'in:mock,live'],
             'base_url' => ['nullable', 'url', 'max:500'],
-            'api_token' => ['nullable', 'string', 'max:500'],
-            'hmac_secret' => ['nullable', 'string', 'max:500'],
             'attendance_webhook_path' => ['nullable', 'string', 'max:255', 'regex:/^\\//'],
             'payroll_endpoint_path' => ['nullable', 'string', 'max:255', 'regex:/^\\//'],
+            'connection_test_path' => ['nullable', 'string', 'max:255', 'regex:/^\\//'],
             'allow_inbound' => ['nullable', 'boolean'],
             'allow_outbound' => ['nullable', 'boolean'],
             'confirm_live' => ['nullable', 'boolean'],
@@ -97,13 +98,9 @@ class IntegrationCenterController extends Controller
         ]);
 
         $company = Company::query()->findOrFail($connection->company_id);
+        // Credentials are generated only by AppOEMS and then locked. This
+        // avoids accidental token replacement from an ordinary settings save.
         $credentials = $connection->credentials ?? [];
-        if (filled($data['api_token'] ?? null)) {
-            $credentials['api_token'] = $data['api_token'];
-        }
-        if (filled($data['hmac_secret'] ?? null)) {
-            $credentials['hmac_secret'] = $data['hmac_secret'];
-        }
 
         $mode = $data['mode'];
         if ($mode === 'live') {
@@ -123,6 +120,9 @@ class IntegrationCenterController extends Controller
             'company_code' => $company->code,
             'attendance_webhook_path' => $data['attendance_webhook_path'] ?: ($existingSettings['attendance_webhook_path'] ?? '/api/integrations/attendance/webhook'),
             'payroll_endpoint_path' => $data['payroll_endpoint_path'] ?: ($existingSettings['payroll_endpoint_path'] ?? '/api/v1/integrations/appoems/payroll-periods'),
+            // This endpoint is a handshake only. It must never be reused for
+            // payroll or attendance, so the live-test button is non-financial.
+            'connection_test_path' => $data['connection_test_path'] ?: ($existingSettings['connection_test_path'] ?? '/api/v1/integrations/appoems/connection-test'),
             'dummy_only' => $mode === 'mock',
             'live_activation_confirmed' => $mode === 'live',
         ]);
@@ -161,6 +161,33 @@ class IntegrationCenterController extends Controller
     }
 
     /**
+     * Runs one signed HTTPS handshake immediately in the web request.
+     * It is owner-only and does not use Laravel queue, scheduler, or outbox.
+     */
+    public function testLiveDirect(Request $request, IntegrationConnection $connection): RedirectResponse
+    {
+        $this->ensureCompany($connection);
+        abort_unless($request->user()->is_owner || $request->user()->is_super_admin, 403);
+
+        try {
+            $result = $this->appBill->testLiveConnection($connection);
+            $connection->update([
+                'health_status' => 'ready',
+                'last_success_at' => now(),
+            ]);
+
+            return back()->with('success', "Koneksi live AppBill terverifikasi langsung (HTTP {$result['status']}). Tidak ada data absensi atau payroll yang dikirim.");
+        } catch (Throwable $exception) {
+            $connection->update([
+                'health_status' => 'warning',
+                'last_failure_at' => now(),
+            ]);
+
+            return back()->with('error', 'Koneksi live AppBill gagal: ' . Str::limit($exception->getMessage(), 300, ''));
+        }
+    }
+
+    /**
      * Kredensial integrasi hanya dapat dirotasi oleh owner/super admin. Nilai
      * hanya di-flash sekali ke session, sementara database menyimpannya dengan
      * encrypted cast. Rotasi tidak pernah mengaktifkan mode LIVE otomatis.
@@ -168,18 +195,60 @@ class IntegrationCenterController extends Controller
     public function generateCredentials(Request $request, IntegrationConnection $connection): RedirectResponse
     {
         $this->ensureCompany($connection);
-        abort_unless($request->user()->is_owner || $request->user()->is_super_admin, 403);
+        // Only the designated developer account may create the secret pair.
+        // Owner still approves live/cutover but never sees the raw values.
+        abort_unless($request->user()->is_developer, 403);
+
+        if ($this->credentialsAreLocked($connection)) {
+            return back()->with('error', 'Token dan HMAC AppBill sudah dikunci. Tidak dapat dibuat ulang dari aplikasi.');
+        }
 
         $credentials = array_merge($connection->credentials ?? [], [
             'api_token' => Str::random(64),
             'hmac_secret' => bin2hex(random_bytes(32)),
         ]);
-        $connection->update(['credentials' => $credentials]);
+        $settings = array_merge($connection->settings ?? [], [
+            // This flag is a deliberate owner decision. The pair is also
+            // checked directly so legacy credentials are protected as well.
+            'credentials_locked' => true,
+        ]);
+        $connection->update([
+            'credentials' => $credentials,
+            'settings' => $settings,
+        ]);
 
-        return back()->with('appbill_generated_credentials', [
-            'api_token' => $credentials['api_token'],
-            'hmac_secret' => $credentials['hmac_secret'],
-        ])->with('success', 'Token dan HMAC baru dibuat. Salin sekarang; nilai tidak akan ditampilkan lagi.');
+        return back()->with('success', 'Token dan HMAC dibuat lalu dikunci. Developer harus memasukkan password untuk melihat nilainya.');
+    }
+
+    /**
+     * Reveals the encrypted pair only to the designated developer after an
+     * explicit password re-check. Values are flashed once and never written to
+     * audit logs, response JSON, or the normal settings form.
+     */
+    public function revealCredentials(Request $request, IntegrationConnection $connection): RedirectResponse
+    {
+        $this->ensureCompany($connection);
+        abort_unless($request->user()->is_developer, 403);
+
+        $data = $request->validate([
+            'developer_password' => ['required', 'string', 'max:255'],
+        ]);
+        if (! Hash::check($data['developer_password'], (string) $request->user()->password)) {
+            return back()->withErrors(['developer_password' => 'Password Developer tidak cocok.']);
+        }
+
+        $credentials = $connection->credentials ?? [];
+        if (! filled($credentials['api_token'] ?? null) || ! filled($credentials['hmac_secret'] ?? null)) {
+            return back()->with('error', 'Token dan HMAC AppBill belum dibuat.');
+        }
+
+        return back()
+            ->with('appbill_revealed_credentials', [
+                'api_token' => $credentials['api_token'],
+                'hmac_secret' => $credentials['hmac_secret'],
+            ])
+            ->with('success', 'Kredensial dibuka satu kali untuk sesi Developer ini.')
+            ->header('Cache-Control', 'no-store, private');
     }
 
     public function dispatch(): RedirectResponse
@@ -204,5 +273,17 @@ class IntegrationCenterController extends Controller
     private function ensureCompany(IntegrationConnection $connection): void
     {
         abort_if((int) $connection->company_id !== (int) session('company_id'), 403);
+    }
+
+    /**
+     * A complete credential pair is always treated as immutable, including
+     * connections created before the explicit credentials_locked flag existed.
+     */
+    private function credentialsAreLocked(IntegrationConnection $connection): bool
+    {
+        $credentials = $connection->credentials ?? [];
+
+        return (bool) data_get($connection->settings, 'credentials_locked', false)
+            || (filled($credentials['api_token'] ?? null) && filled($credentials['hmac_secret'] ?? null));
     }
 }

@@ -134,6 +134,15 @@ class AppBillIntegrationService
         );
     }
 
+    /**
+     * Owner-triggered, synchronous connectivity check. Unlike dispatch(), this
+     * never creates an integration_outbox row and never transfers HR data.
+     */
+    public function testLiveConnection(IntegrationConnection $connection): array
+    {
+        return $this->transport->testLiveConnection($connection);
+    }
+
     public function dispatch(IntegrationOutbox $event): IntegrationOutbox
     {
         if ($event->status === 'sent') {

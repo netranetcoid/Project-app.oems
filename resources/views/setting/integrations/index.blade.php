@@ -3,6 +3,8 @@
 @section('title', 'Integrasi & Audit Sistem')
 
 @section('content')
+@php($appBillCredentialsLocked = (bool) data_get($connection->settings, 'credentials_locked', false) || (filled(data_get($connection->credentials, 'api_token')) && filled(data_get($connection->credentials, 'hmac_secret'))))
+@php($canRevealAppBillCredentials = (bool) auth()->user()->is_developer)
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
   <div>
     <h4 class="mb-1">Integrasi & Audit Sistem</h4>
@@ -25,24 +27,31 @@
 @if(session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
 @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
 @if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
-@if(session('appbill_generated_credentials'))
+@if(session('appbill_revealed_credentials'))
   <div class="alert alert-warning">
     <div class="fw-bold mb-2">Simpan kredensial AppBill sekarang — hanya tampil sekali.</div>
-    <div class="mb-1">API token: <code class="text-break">{{ data_get(session('appbill_generated_credentials'),'api_token') }}</code></div>
-    <div>HMAC secret: <code class="text-break">{{ data_get(session('appbill_generated_credentials'),'hmac_secret') }}</code></div>
+    <div class="mb-1">API token: <code class="text-break">{{ data_get(session('appbill_revealed_credentials'),'api_token') }}</code></div>
+    <div>HMAC secret: <code class="text-break">{{ data_get(session('appbill_revealed_credentials'),'hmac_secret') }}</code></div>
     <div class="small mt-2">Kirim melalui kanal aman ke pengembang AppBill; jangan simpan di chat, screenshot, atau dokumen publik.</div>
   </div>
 @endif
 
-<div class="alert alert-primary d-flex align-items-start gap-3">
-  <i class="ri ri-shield-check-line fs-4"></i>
-  <div><strong>Mode dummy aman sedang aktif.</strong><br><span class="small">Tidak ada data yang dikirim ke internet. Mode live dikunci sampai API, signature, IP allowlist, dan tanggal cutover disetujui owner.</span></div>
-</div>
+@if($connection->mode === 'live')
+  <div class="alert alert-success d-flex align-items-start gap-3">
+    <i class="ri ri-broadcast-line fs-4"></i>
+    <div><strong>Mode AppBill live aktif.</strong><br><span class="small">Gunakan Uji Koneksi Live untuk handshake langsung tanpa antrean. Pengiriman absensi/payroll tetap mengikuti approval dan outbox audit.</span></div>
+  </div>
+@else
+  <div class="alert alert-primary d-flex align-items-start gap-3">
+    <i class="ri ri-shield-check-line fs-4"></i>
+    <div><strong>Mode dummy aman sedang aktif.</strong><br><span class="small">Tidak ada data yang dikirim ke internet. Mode live dikunci sampai API, signature, IP allowlist, dan tanggal cutover disetujui owner.</span></div>
+  </div>
+@endif
 
 <div class="row g-4 mb-4">
   @foreach([
     ['Antrean', $stats['pending'], 'warning', 'ri-time-line'],
-    ['Terkirim Mock', $stats['sent'], 'success', 'ri-checkbox-circle-line'],
+    [$connection->mode === 'live' ? 'Terkirim Live' : 'Terkirim Mock', $stats['sent'], 'success', 'ri-checkbox-circle-line'],
     ['Perlu Tindakan', $stats['dead'], 'danger', 'ri-error-warning-line'],
     ['Audit Hari Ini', $stats['audit_today'], 'info', 'ri-history-line'],
   ] as [$label,$value,$color,$icon])
@@ -84,18 +93,14 @@
             <label class="form-label">Base URL AppBill</label>
             <input class="form-control" type="url" name="base_url" value="{{ old('base_url',$connection->base_url) }}" placeholder="https://staging.appbill.example">
           </div>
-          <div class="col-md-6 appbill-live-field">
-            <label class="form-label">API token</label>
-            <input class="form-control" type="password" name="api_token" autocomplete="new-password" placeholder="Kosongkan untuk mempertahankan token lama">
-          </div>
-          <div class="col-md-6 appbill-live-field">
-            <label class="form-label">HMAC secret</label>
-            <input class="form-control" type="password" name="hmac_secret" autocomplete="new-password" placeholder="Kosongkan untuk mempertahankan secret lama">
-          </div>
-          @if(auth()->user()->is_owner || auth()->user()->is_super_admin)
+          @if($canRevealAppBillCredentials)
           <div class="col-12 appbill-live-field">
-            <button type="submit" form="appbillCredentialsForm" class="btn btn-outline-warning btn-sm"><i class="ri ri-key-2-line me-1"></i>Buat / Rotasi Token Dua Arah</button>
-            <span class="small text-muted ms-2">Owner-only; token dan HMAC ditampilkan sekali.</span>
+            @if($appBillCredentialsLocked)
+              <div class="alert alert-success mb-0 py-2 d-flex flex-wrap align-items-center justify-content-between gap-2"><span><i class="ri ri-lock-line me-1"></i><strong>Token dan HMAC sudah dikunci.</strong> Hanya Developer yang dapat melihatnya setelah password diverifikasi.</span><button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#revealAppBillCredentialsModal"><i class="ri ri-eye-line me-1"></i>Lihat Kredensial</button></div>
+            @else
+              <button type="submit" form="appbillCredentialsForm" class="btn btn-outline-warning btn-sm"><i class="ri ri-key-2-line me-1"></i>Buat Token Dua Arah & Kunci</button>
+              <span class="small text-muted ms-2">Developer-only; tersimpan terenkripsi dan dikunci setelah dibuat.</span>
+            @endif
           </div>
           @endif
           <div class="col-md-6 appbill-live-field">
@@ -105,6 +110,11 @@
           <div class="col-md-6 appbill-live-field">
             <label class="form-label">Path endpoint payroll</label>
             <input class="form-control" name="payroll_endpoint_path" value="{{ old('payroll_endpoint_path',data_get($connection->settings,'payroll_endpoint_path','/api/v1/integrations/appoems/payroll-periods')) }}">
+          </div>
+          <div class="col-12 appbill-live-field">
+            <label class="form-label">Path uji koneksi langsung</label>
+            <input class="form-control" name="connection_test_path" value="{{ old('connection_test_path',data_get($connection->settings,'connection_test_path','/api/v1/integrations/appoems/connection-test')) }}">
+            <div class="form-text">Endpoint AppBill untuk handshake teknis. Tidak menerima atau membuat data absensi/payroll.</div>
           </div>
           <div class="col-md-6">
             <label class="form-label">Timeout (detik)</label>
@@ -149,13 +159,19 @@
             <button class="btn btn-primary">Simpan Pengaturan</button>
           </div>
         </form>
-        @if(auth()->user()->is_owner || auth()->user()->is_super_admin)
-          <form id="appbillCredentialsForm" method="POST" action="{{ route('settings.integrations.credentials',$connection) }}" onsubmit="return confirm('Rotasi token akan membatalkan token lama. Lanjutkan hanya bila AppBill siap menerima kredensial baru.');">@csrf</form>
+        @if($canRevealAppBillCredentials && ! $appBillCredentialsLocked)
+          <form id="appbillCredentialsForm" method="POST" action="{{ route('settings.integrations.credentials',$connection) }}" onsubmit="return confirm('Buat token dan HMAC satu kali lalu kunci permanen dari aplikasi? Simpan nilainya sebelum menutup halaman.');">@csrf</form>
         @endif
         @endcan
 
         @can('integration.dispatch')
         <hr>
+        @if($connection->mode === 'live' && (auth()->user()->is_owner || auth()->user()->is_super_admin))
+          <form method="POST" action="{{ route('settings.integrations.test-live-direct',$connection) }}" onsubmit="return confirm('Jalankan handshake langsung ke AppBill? Tidak ada absensi maupun payroll yang dikirim.');">
+            @csrf
+            <button class="btn btn-success w-100 mb-2"><i class="ri ri-links-line me-1"></i>Uji Koneksi Live Sekarang</button>
+          </form>
+        @endif
         <form method="POST" action="{{ route('settings.integrations.test') }}">@csrf
           <button class="btn btn-label-success w-100"><i class="ri ri-flask-line me-1"></i>Kirim Event Tes Dummy</button>
         </form>
@@ -238,6 +254,19 @@
   <div class="card-body">{{ $audits->links() }}</div>
 </div>
 @endcan
+
+@if($canRevealAppBillCredentials && $appBillCredentialsLocked)
+<div class="modal fade" id="revealAppBillCredentialsModal" tabindex="-1" aria-labelledby="revealAppBillCredentialsLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" method="POST" action="{{ route('settings.integrations.credentials.reveal',$connection) }}" autocomplete="off">
+      @csrf
+      <div class="modal-header"><h5 class="modal-title" id="revealAppBillCredentialsLabel">Konfirmasi Password Developer</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+      <div class="modal-body"><p class="text-muted small">Token dan HMAC akan ditampilkan satu kali pada halaman ini. Jangan gunakan password Owner atau pegawai.</p><label class="form-label" for="developerPassword">Password Developer</label><input id="developerPassword" class="form-control" type="password" name="developer_password" required autofocus></div>
+      <div class="modal-footer"><button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Batal</button><button class="btn btn-primary"><i class="ri ri-lock-unlock-line me-1"></i>Buka Kredensial</button></div>
+    </form>
+  </div>
+</div>
+@endif
 @endsection
 
 @section('page-script')
