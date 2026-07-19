@@ -29,6 +29,7 @@
                 @can('payroll.view')<a href="{{ route('hr.payroll.index') }}" class="btn btn-sm btn-outline-light"><i class="ri ri-wallet-3-line me-1"></i>Payroll</a>@endcan
                 @can('employees.view')<a href="{{ route('hr.contracts.index') }}" class="btn btn-sm btn-outline-light"><i class="ri ri-file-text-line me-1"></i>Kontrak</a>@endcan
                 @can('hr-request.view')<a href="{{ route('hr.requests.index') }}" class="btn btn-sm btn-outline-light"><i class="ri ri-file-check-line me-1"></i>Approval</a>@endcan
+                @if(auth()->user()->is_developer)<a href="{{ route('hr.attendance-locations.index') }}" class="btn btn-sm btn-outline-light"><i class="ri ri-map-pin-line me-1"></i>Lokasi Presensi</a>@endif
               </div>
             </div>
 

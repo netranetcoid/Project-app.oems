@@ -71,7 +71,9 @@ return [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'error'),
-            'days' => env('LOG_DAILY_DAYS', 7),
+            // Seven daily files retain actionable errors without letting log
+            // growth consume VPS disk/memory during normal operation.
+            'days' => max(1, min(30, (int) env('LOG_DAILY_DAYS', 7))),
             'replace_placeholders' => true,
         ],
 

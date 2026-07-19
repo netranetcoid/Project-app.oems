@@ -486,6 +486,15 @@ Route::prefix('hr')
             ->middleware('permission:attendance.view')->name('settings.index');
         Route::put('/settings', [\App\Http\Controllers\HR\HrSettingsController::class, 'update'])
             ->name('settings.update');
+        // Developer-only source of truth for company/site/division geofence.
+        Route::get('/attendance-locations', [\App\Http\Controllers\HR\AttendanceLocationPolicyController::class, 'index'])
+            ->middleware('permission:attendance.view')->name('attendance-locations.index');
+        Route::post('/attendance-locations', [\App\Http\Controllers\HR\AttendanceLocationPolicyController::class, 'store'])
+            ->middleware('permission:attendance.view')->name('attendance-locations.store');
+        Route::put('/attendance-locations/{policy}', [\App\Http\Controllers\HR\AttendanceLocationPolicyController::class, 'update'])
+            ->middleware('permission:attendance.view')->name('attendance-locations.update');
+        Route::delete('/attendance-locations/{policy}', [\App\Http\Controllers\HR\AttendanceLocationPolicyController::class, 'destroy'])
+            ->middleware('permission:attendance.view')->name('attendance-locations.destroy');
         Route::get('/compensation', [\App\Http\Controllers\HR\CompensationController::class, 'index'])
             ->middleware('permission:payroll.view')->name('compensation.index');
 

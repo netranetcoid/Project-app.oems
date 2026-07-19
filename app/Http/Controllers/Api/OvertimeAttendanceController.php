@@ -39,7 +39,7 @@ class OvertimeAttendanceController extends Controller
             'company_id' => $employee->company_id, 'employee_id' => $employee->id, 'attendance_id' => $normal->id,
             'attendance_shift_id' => $assignment?->attendance_shift_id, 'date' => $now->toDateString(), 'clock_in_at' => $now,
             'in_latitude' => $data['latitude'], 'in_longitude' => $data['longitude'], 'gps_accuracy_meters' => $data['accuracy'] ?? null,
-            'geofence_distance_meters' => $distance, 'in_photo' => $this->storeProof($request, $employee->company_id, $employee->id, $now, 'in'),
+            'geofence_distance_meters' => $distance, 'geofence_validated' => (bool) $policy['geofence_required'], 'in_photo' => $this->storeProof($request, $employee->company_id, $employee->id, $now, 'in'),
             'client_occurred_at' => isset($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : null,
             'retention_until' => $this->proofs->retentionUntil($policy), 'device_id' => $data['device_id'] ?? $request->header('X-Device-Id'), 'notes' => $data['note'] ?? null,
         ])->save();
@@ -58,7 +58,7 @@ class OvertimeAttendanceController extends Controller
         // tombol, namun jam terhitung dikunci di batas harian yang disetel HR.
         $countedOut = $now->min($overtime->clock_in_at->copy()->addMinutes($policy['max_minutes']));
         $overtime->update(['clock_out_at' => $countedOut, 'out_latitude' => $data['latitude'], 'out_longitude' => $data['longitude'],
-            'gps_accuracy_meters' => $data['accuracy'] ?? $overtime->gps_accuracy_meters, 'geofence_distance_meters' => $distance,
+            'gps_accuracy_meters' => $data['accuracy'] ?? $overtime->gps_accuracy_meters, 'geofence_distance_meters' => $distance, 'geofence_validated' => (bool) $policy['geofence_required'],
             'out_photo' => $this->storeProof($request, $employee->company_id, $employee->id, $now, 'out'),
             'client_occurred_at' => isset($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : $overtime->client_occurred_at,
             'device_id' => $data['device_id'] ?? $request->header('X-Device-Id'), 'notes' => $data['note'] ?? $overtime->notes]);

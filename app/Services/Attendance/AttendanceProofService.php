@@ -3,6 +3,7 @@
 namespace App\Services\Attendance;
 
 use App\Models\AttendanceShiftAssignment;
+use App\Models\AttendanceLocationPolicy;
 use App\Models\Employee;
 use App\Models\User;
 use Carbon\Carbon;
@@ -21,7 +22,7 @@ class AttendanceProofService
 
     public function employeeFor(User $user): Employee
     {
-        $employee = $user->employee()->with(['branch', 'company'])->first();
+        $employee = $user->employee()->with(['branch', 'company', 'division'])->first();
         if (!$employee || (int) $employee->company_id !== (int) $user->company_id) {
             throw ValidationException::withMessages([
                 'employee' => ['Akun belum ditautkan ke master karyawan aktif.'],
@@ -59,16 +60,26 @@ class AttendanceProofService
         $settings = is_array($company?->settings) ? $company->settings : [];
         $branch = $assignment?->branch ?: $employee->branch;
 
-        $latitude = $branch?->latitude ?? ($settings['office_latitude'] ?? self::OFFICE_LATITUDE);
-        $longitude = $branch?->longitude ?? ($settings['office_longitude'] ?? self::OFFICE_LONGITUDE);
-        $radius = $branch?->attendance_radius_meter
-            ?? $company?->attendance_radius_meter
-            ?? self::DEFAULT_RADIUS_METERS;
+        /*
+         * Location priority is deliberate: a division exception (for example
+         * field technicians) must beat its branch, then the branch/site beats
+         * PT OSM's main office. The legacy branch/company values remain a
+         * backwards-compatible fallback until a Developer creates policies.
+         */
+        $location = $this->locationPolicy($employee, $branch);
+        $mode = $location?->mode ?? 'geofence';
+        $latitude = $location?->latitude ?? $branch?->latitude ?? ($settings['office_latitude'] ?? self::OFFICE_LATITUDE);
+        $longitude = $location?->longitude ?? $branch?->longitude ?? ($settings['office_longitude'] ?? self::OFFICE_LONGITUDE);
+        $radius = $location?->radius_meter ?? $branch?->attendance_radius_meter
+            ?? $company?->attendance_radius_meter ?? self::DEFAULT_RADIUS_METERS;
 
         return [
             'latitude' => (float) $latitude,
             'longitude' => (float) $longitude,
             'radius' => max(1, (int) $radius),
+            'geofence_required' => $mode === 'geofence',
+            'location_mode' => $mode,
+            'location_name' => $location?->name ?? $branch?->name ?? $company?->name ?? 'Kantor PT OSM',
             'gps_required' => (bool) ($assignment?->shift?->gps_required ?? $company?->attendance_gps_required ?? true),
             'selfie_required' => (bool) ($assignment?->shift?->selfie_required ?? $settings['attendance_selfie_required'] ?? true),
             'retention_days' => max(1, (int) ($settings['attendance_retention_days'] ?? self::DEFAULT_RETENTION_DAYS)),
@@ -98,7 +109,7 @@ class AttendanceProofService
             ]);
         }
 
-        if (!$policy['gps_required']) {
+        if (!$policy['gps_required'] || !$policy['geofence_required']) {
             return 0.0;
         }
 
@@ -121,5 +132,28 @@ class AttendanceProofService
     public function retentionUntil(array $policy): string
     {
         return now()->addDays($policy['retention_days'])->toDateString();
+    }
+
+    /** Finds the single highest-priority active policy for an employee. */
+    private function locationPolicy(Employee $employee, $branch): ?AttendanceLocationPolicy
+    {
+        $base = AttendanceLocationPolicy::query()->forCompany((int) $employee->company_id)->active();
+
+        if ($employee->division_id) {
+            $division = (clone $base)->where('scope_type', 'division')
+                ->where('scope_id', $employee->division_id)->first();
+            if ($division) {
+                return $division;
+            }
+        }
+
+        if ($branch?->id) {
+            $site = (clone $base)->where('scope_type', 'branch')->where('scope_id', $branch->id)->first();
+            if ($site) {
+                return $site;
+            }
+        }
+
+        return (clone $base)->where('scope_type', 'company')->whereNull('scope_id')->first();
     }
 }

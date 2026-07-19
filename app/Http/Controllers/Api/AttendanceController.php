@@ -51,7 +51,7 @@ class AttendanceController extends Controller
             'in_longitude' => $input['longitude'],
             'gps_accuracy_meters' => $input['accuracy'] ?? null,
             'geofence_distance_meters' => $distance,
-            'geofence_validated' => true,
+            'geofence_validated' => (bool) $policy['geofence_required'],
             'in_photo' => $photoPath,
             'status' => $status,
             'notes' => $input['note'] ?? null,
@@ -102,7 +102,7 @@ class AttendanceController extends Controller
             'out_latitude' => $input['latitude'],
             'out_longitude' => $input['longitude'],
             'geofence_distance_meters' => $distance,
-            'geofence_validated' => true,
+            'geofence_validated' => (bool) $policy['geofence_required'],
             'out_photo' => $this->storeProof($request, $employee->company_id, $employee->id, $date),
             'notes' => $input['note'] ?? $attendance->notes,
             'device_id' => $input['device_id'] ?? $request->header('X-Device-Id'),
@@ -150,11 +150,9 @@ class AttendanceController extends Controller
         $employee = $this->proofs->employeeFor($request->user());
         $assignment = $this->proofs->assignment($employee, now());
         $policy = $this->proofs->policy($employee, $assignment);
-        $office = $assignment?->branch ?: $employee->branch;
-
         return response()->json(['data' => [
             ...$policy,
-            'office_name' => $office?->name ?? $employee->company?->name ?? 'Kantor PT OSM',
+            'office_name' => $policy['location_name'],
             'shift_name' => $assignment?->shift?->name ?? 'Belum ada shift',
         ]]);
     }
