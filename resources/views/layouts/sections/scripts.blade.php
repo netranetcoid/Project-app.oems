@@ -15,6 +15,9 @@
 @vite(['resources/assets/js/main.js'])
 <!-- END: Theme JS-->
 
+{{-- Formatter nominal global; tetap memakai layout Materialize bawaan. --}}
+@include('layouts.sections.rupiah-inputs')
+
 <!-- Pricing Modal JS-->
 @stack('pricing-script')
 <!-- END: Pricing Modal JS-->
