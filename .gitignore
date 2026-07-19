@@ -53,3 +53,7 @@ yarn-error.log
 
 # Windows shortcut files
 *.lnk
+
+/bootstrap/cache/*.php
+/storage/logs/*.log
+/storage/framework/*
