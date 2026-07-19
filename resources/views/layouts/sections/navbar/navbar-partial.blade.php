@@ -1,6 +1,12 @@
 @php
   use Illuminate\Support\Facades\Auth;
   use Illuminate\Support\Facades\Route;
+
+  // Data awal dibuat oleh AppServiceProvider. JavaScript di bawah melakukan
+  // polling ringan sehingga HR yang sedang membuka AppOEMS tetap tahu ada
+  // pengajuan baru tanpa menekan refresh browser.
+  $ovallHrNotifications = $ovallHrUnreadNotifications ?? collect();
+  $canReviewOvallHrRequests = Auth::check() && Auth::user()->can('hr-request.view');
 @endphp
 
 <!--  Brand demo (display only for navbar-full and hide on below xl) -->
@@ -66,6 +72,46 @@
     <!-- / Style Switcher-->
   @endif
   <ul class="navbar-nav flex-row align-items-center ms-auto">
+    @if ($canReviewOvallHrRequests)
+      <!-- OvallHR request inbox: only HR/reviewer can see this floating bell. -->
+      <li class="nav-item dropdown-notifications navbar-dropdown dropdown me-3 me-xl-2" id="ovallhr-notification-root">
+        <a class="nav-link dropdown-toggle hide-arrow position-relative" href="javascript:void(0);" data-bs-toggle="dropdown"
+          aria-label="Notifikasi pengajuan OvallHR" aria-expanded="false">
+          <i class="icon-base ri ri-notification-3-line icon-22px"></i>
+          <span id="ovallhr-notification-badge"
+            class="badge rounded-pill bg-danger badge-dot badge-notifications {{ $ovallHrNotifications->isEmpty() ? 'd-none' : '' }}"></span>
+        </a>
+        <ul class="dropdown-menu dropdown-menu-end py-0" style="min-width: 22rem; max-width: min(22rem, calc(100vw - 2rem));">
+          <li class="dropdown-menu-header border-bottom">
+            <div class="dropdown-header d-flex align-items-center py-3">
+              <h6 class="mb-0 me-auto">Pengajuan OvallHR</h6>
+              <span class="badge rounded-pill bg-label-primary" id="ovallhr-notification-count">{{ $ovallHrNotifications->count() }}</span>
+            </div>
+          </li>
+          <li class="dropdown-notifications-list scrollable-container" style="max-height: 22rem; overflow-y: auto;">
+            <ul class="list-group list-group-flush" id="ovallhr-notification-list">
+              @forelse ($ovallHrNotifications as $notification)
+                <li class="list-group-item list-group-item-action dropdown-notifications-item">
+                  <a class="d-flex gap-3 text-decoration-none text-reset" href="{{ route('notifications.ovallhr.open', $notification->id) }}">
+                    <span class="avatar flex-shrink-0"><span class="avatar-initial rounded bg-label-warning"><i class="icon-base ri ri-file-edit-line"></i></span></span>
+                    <span class="d-flex flex-column gap-1">
+                      <span class="mb-0 fw-medium">{{ data_get($notification->data, 'title', 'Pengajuan baru') }}</span>
+                      <span class="text-body small">{{ data_get($notification->data, 'message', '') }}</span>
+                      <span class="text-body-secondary small">{{ $notification->created_at?->diffForHumans() }}</span>
+                    </span>
+                  </a>
+                </li>
+              @empty
+                <li class="list-group-item text-center text-body-secondary py-4" id="ovallhr-notification-empty">Belum ada pengajuan yang menunggu review.</li>
+              @endforelse
+            </ul>
+          </li>
+          <li class="dropdown-menu-footer border-top">
+            <a href="{{ route('hr.requests.index') }}" class="dropdown-item text-center py-2">Buka Pengajuan &amp; Approval</a>
+          </li>
+        </ul>
+      </li>
+    @endif
     <!-- User -->
     <li class="nav-item navbar-dropdown dropdown-user dropdown">
       <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);" data-bs-toggle="dropdown">
@@ -203,3 +249,44 @@
     <!--/ User -->
   </ul>
 </div>
+
+@if ($canReviewOvallHrRequests)
+  <!-- Toast sengaja ringan (tanpa websocket) agar cocok untuk VPS saat ini. -->
+  <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+    <div id="ovallhr-request-toast" class="toast text-bg-primary border-0" role="status" aria-live="polite" aria-atomic="true">
+      <div class="d-flex"><div class="toast-body"><i class="icon-base ri ri-notification-3-line me-1"></i> Ada pengajuan OvallHR baru untuk direview.</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Tutup"></button></div>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const endpoint = @json(route('notifications.ovallhr.index'));
+      const openPrefix = @json(url('/notifications/ovallhr'));
+      const list = document.getElementById('ovallhr-notification-list');
+      const badge = document.getElementById('ovallhr-notification-badge');
+      const count = document.getElementById('ovallhr-notification-count');
+      let knownUnread = Number(count?.textContent || 0);
+
+      const escapeHtml = (value) => String(value || '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' })[char]);
+      const render = (payload) => {
+        const unread = Number(payload.unread_count || 0);
+        count.textContent = unread;
+        badge.classList.toggle('d-none', unread === 0);
+        const items = payload.notifications || [];
+        list.innerHTML = items.length
+          ? items.map((item) => `<li class="list-group-item list-group-item-action dropdown-notifications-item"><a class="d-flex gap-3 text-decoration-none text-reset" href="${escapeHtml(item.open_url || openPrefix + '/' + item.id + '/open')}"><span class="avatar flex-shrink-0"><span class="avatar-initial rounded bg-label-warning"><i class="icon-base ri ri-file-edit-line"></i></span></span><span class="d-flex flex-column gap-1"><span class="mb-0 fw-medium">${escapeHtml(item.title)}</span><span class="text-body small">${escapeHtml(item.message)}</span><span class="text-body-secondary small">${escapeHtml(item.created_at)}</span></span></a></li>`).join('')
+          : '<li class="list-group-item text-center text-body-secondary py-4">Belum ada pengajuan yang menunggu review.</li>';
+        if (unread > knownUnread && window.bootstrap?.Toast) {
+          window.bootstrap.Toast.getOrCreateInstance(document.getElementById('ovallhr-request-toast'), { delay: 8000 }).show();
+        }
+        knownUnread = unread;
+      };
+      const refresh = () => fetch(endpoint, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+        .then((response) => response.ok ? response.json() : null)
+        .then((response) => response?.data && render(response.data))
+        .catch(() => {});
+      window.setTimeout(refresh, 5000);
+      window.setInterval(refresh, 30000);
+    })();
+  </script>
+@endif

@@ -39,6 +39,8 @@ class AppBillIntegrationSeeder extends Seeder
                         'live_activation_confirmed' => false,
                         'cutover_date_editable' => true,
                         'payload_schema_version' => '1.0',
+                        // Payroll inti tetap sinkron; rincian BPJS fail-closed.
+                        'bpjs_payload_enabled' => false,
                         // Endpoint khusus handshake agar tombol uji langsung
                         // tidak pernah diarahkan ke endpoint payroll/absensi.
                         'connection_test_path' => '/api/v1/integrations/appoems/connection-test',

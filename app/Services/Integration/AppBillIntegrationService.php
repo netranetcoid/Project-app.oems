@@ -29,7 +29,9 @@ class AppBillIntegrationService
                 'allow_outbound' => true,
                 'allow_inbound' => true,
                 'health_status' => 'ready',
-                'settings' => ['dummy_only' => true, 'live_activation_confirmed' => false],
+                // Payroll biasa tetap sinkron. Detail BPJS bersifat opsional
+                // sampai mapping akun BPJS di AppBill disetujui.
+                'settings' => ['dummy_only' => true, 'live_activation_confirmed' => false, 'bpjs_payload_enabled' => false],
             ]
         );
     }
@@ -67,6 +69,7 @@ class AppBillIntegrationService
         }
 
         $period->loadMissing(['slips.items']);
+        $includeBpjs = $this->bpjsPayloadEnabled((int) $period->company_id);
         $payload = [
             'schema_version' => '1.0',
             'source' => 'appoems',
@@ -104,6 +107,36 @@ class AppBillIntegrationService
                 ])->values()->all(),
             ])->values()->all(),
         ];
+
+        if (! $includeBpjs) {
+            // Item BPJS juga disaring agar AppBill benar-benar hanya menerima
+            // payroll inti, bukan rincian yang terselip di daftar komponen.
+            $payload = $this->withoutBpjsPayload($payload);
+        }
+
+        // AppBill tetap menerima payroll inti. Rincian BPJS baru dilampirkan
+        // bila toggle khusus diaktifkan; tidak ada switch yang mematikan gaji.
+        if ($includeBpjs) {
+            $payload['totals']['company_burden'] = (string) $period->total_company_burden;
+            $payload['slips'] = $period->slips->map(fn ($slip): array => [
+                'slip_no' => $slip->slip_no,
+                'employee_no' => $slip->employee_no_snapshot,
+                'employee_name' => $slip->employee_name_snapshot,
+                'branch' => $slip->branch_name_snapshot,
+                'position' => $slip->position_name_snapshot,
+                'bank_name' => $slip->bank_name_snapshot,
+                'bank_account' => $slip->bank_account_snapshot,
+                'gross_income' => (string) $slip->gross_income,
+                'total_deduction' => (string) $slip->total_deduction,
+                'net_pay' => (string) $slip->net_pay,
+                'bpjs' => $this->bpjsPayloadForSlip($slip),
+                'kpi_bonus' => (string) $slip->kpi_bonus,
+                'items' => $slip->items->map(fn ($item): array => [
+                    'category' => $item->category, 'code' => $item->code,
+                    'name' => $item->name, 'amount' => (string) $item->amount,
+                ])->values()->all(),
+            ])->values()->all();
+        }
 
         return $this->queueEvent(
             (int) $period->company_id,
@@ -166,6 +199,12 @@ class AppBillIntegrationService
         $connection = $event->connection;
 
         try {
+            // Toggle BPJS tidak pernah menghentikan payroll normal. Jika
+            // dimatikan setelah event dibuat, payload lama disanitasi dahulu.
+            if ($event->event_type === 'payroll.period.published' && ! $this->bpjsPayloadEnabledForConnection($connection)) {
+                $event->update(['payload' => $this->withoutBpjsPayload($event->payload ?? [])]);
+            }
+
             if (! $connection->is_enabled || ! $connection->allow_outbound) {
                 throw new RuntimeException('Koneksi outbound AppBill sedang dinonaktifkan.');
             }
@@ -247,5 +286,67 @@ class AppBillIntegrationService
             'last_error' => null,
         ]);
         return $event->fresh();
+    }
+
+    /** Status khusus detail BPJS; pengiriman payroll inti tidak bergantung padanya. */
+    public function bpjsPayloadEnabled(int $companyId): bool
+    {
+        return $this->bpjsPayloadEnabledForConnection($this->connection($companyId));
+    }
+
+    /** Menghapus rincian BPJS dari antrean payroll yang belum terkirim, bukan membatalkan gaji. */
+    public function redactPendingPayrollBpjs(IntegrationConnection $connection): int
+    {
+        $events = IntegrationOutbox::query()
+            ->where('integration_connection_id', $connection->id)
+            ->where('event_type', 'payroll.period.published')
+            ->whereIn('status', ['pending', 'failed'])
+            ->get();
+
+        foreach ($events as $event) {
+            $event->update(['payload' => $this->withoutBpjsPayload($event->payload ?? [])]);
+        }
+
+        return $events->count();
+    }
+
+    private function bpjsPayloadEnabledForConnection(IntegrationConnection $connection): bool
+    {
+        return (bool) data_get($connection->settings, 'bpjs_payload_enabled', false);
+    }
+
+    private function bpjsPayloadForSlip($slip): array
+    {
+        return [
+            'wage_base' => (string) $slip->bpjs_wage_base,
+            'health_company' => (string) $slip->bpjs_kesehatan_perusahaan,
+            'health_employee' => (string) $slip->bpjs_kesehatan_karyawan,
+            'jht_company' => (string) $slip->jht_perusahaan,
+            'jht_employee' => (string) $slip->jht_karyawan,
+            'jp_company' => (string) $slip->jp_perusahaan,
+            'jp_employee' => (string) $slip->jp_karyawan,
+            'jkk_company' => (string) $slip->jkk,
+            'jkm_company' => (string) $slip->jkm,
+            'total_company_burden' => (string) $slip->total_company_burden,
+        ];
+    }
+
+    private function withoutBpjsPayload(array $payload): array
+    {
+        unset($payload['totals']['company_burden']);
+        foreach ($payload['slips'] ?? [] as $index => $slip) {
+            unset($slip['bpjs']);
+            $slip['items'] = array_values(array_filter(
+                $slip['items'] ?? [],
+                fn (array $item): bool => ! in_array($item['code'] ?? null, [
+                    'bpjs_kesehatan_perusahaan', 'bpjs_kesehatan_karyawan',
+                    'jht_perusahaan', 'jht_karyawan', 'jp_perusahaan',
+                    'jp_karyawan', 'jkk', 'jkm',
+                ], true)
+            ));
+            $payload['slips'][$index] = $slip;
+        }
+
+        return $payload;
     }
 }

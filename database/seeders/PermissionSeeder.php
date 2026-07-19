@@ -77,6 +77,11 @@ class PermissionSeeder extends Seeder
             'employees.update',
             'employees.delete',
 
+            // Dokumen pegawai mengandung identitas pribadi; permission ini
+            // terpisah dari employees.view agar akses dapat dibatasi ketat.
+            'employee-document.view',
+            'employee-document.manage',
+
 
             
             /*
@@ -89,6 +94,20 @@ class PermissionSeeder extends Seeder
             'contract-type.create',
             'contract-type.update',
             'contract-type.delete',
+
+            /*
+            |--------------------------------------------------------------------------
+            | Master Document & BPJS Readiness
+            |--------------------------------------------------------------------------
+            */
+            'company-document.view',
+            'company-document.create',
+            'company-document.update',
+            'company-document.delete',
+            'bpjs-registration.view',
+            'bpjs-registration.manage',
+            'bpjs-calculation.view',
+            'bpjs-calculation.manage',
 
             /*
             |--------------------------------------------------------------------------
@@ -158,6 +177,9 @@ class PermissionSeeder extends Seeder
             'payroll.update',
             'payroll.approve',
             'payroll.publish',
+
+            // Read-only pusat laporan lintas payroll dan biaya pegawai.
+            'employee-cost.view',
 
             // Mobile Release Center: hanya developer/super admin/owner yang
             // dapat mempublikasikan APK atau mengubah feature toggle.

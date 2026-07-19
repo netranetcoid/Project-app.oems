@@ -144,7 +144,7 @@
 
                 <small class="text-muted">
 
-                    Digunakan oleh Modul Kontrak Pegawai
+                    Kelola seluruh dokumen template perusahaan. Kontrak pegawai yang sudah terbit tetap memakai snapshot versinya sendiri.
 
                 </small>
 
@@ -200,13 +200,17 @@
 
                         <th>Kode</th>
 
-                        <th>Nama</th>
+                        <th>Nama / Kategori</th>
 
                         <th>Durasi</th>
 
+                        <th>Versi</th>
+
                         <th>Status</th>
 
-                        <th width="130">Aksi</th>
+                        <th>Diperbarui</th>
+
+                        <th width="210">Aksi</th>
 
                     </tr>
 
@@ -232,11 +236,27 @@
 
                                 </strong>
 
+                                <div class="small text-muted mt-1">
+                                    {{ $templateReferences[$item->template_key]['label'] ?? ($item->template_key ? str($item->template_key)->replace('_', ' ')->title() : 'Kategori custom') }}
+                                </div>
+
+                                @if(blank($item->template_body))
+                                    <span class="badge bg-label-warning mt-1">Draf belum diisi</span>
+                                @else
+                                    <span class="badge bg-label-success mt-1">Template siap diedit</span>
+                                @endif
+
                             </td>
 
                             <td>
 
                                 {{ $item->duration_label }}
+
+                            </td>
+
+                            <td>
+
+                                <span class="badge bg-label-info">v{{ $item->template_version ?: 1 }}</span>
 
                             </td>
 
@@ -252,10 +272,18 @@
 
                             <td>
 
-                                <a href="{{ route('master.contract-types.edit',$item) }}"
-                                   class="btn btn-warning btn-sm">
+                                <span class="small text-muted">
+                                    {{ optional($item->updated_at)->format('d M Y H:i') ?? '-' }}
+                                </span>
 
-                                    <i class="ti ti-edit"></i>
+                            </td>
+
+                            <td>
+
+                                <a href="{{ route('master.contract-types.edit',$item) }}"
+                                   class="btn btn-primary btn-sm">
+
+                                    <i class="ti ti-file-pencil me-1"></i> Edit Template
 
                                 </a>
 
@@ -268,7 +296,7 @@
                                     @method('DELETE')
 
                                     <button
-                                        class="btn btn-danger btn-sm"
+                                        class="btn btn-label-danger btn-sm"
                                         onclick="return confirm('Hapus jenis kontrak?')">
 
                                         <i class="ti ti-trash"></i>
@@ -285,7 +313,7 @@
 
                         <tr>
 
-                            <td colspan="5"
+                            <td colspan="7"
                                 class="text-center">
 
                                 Belum ada data.

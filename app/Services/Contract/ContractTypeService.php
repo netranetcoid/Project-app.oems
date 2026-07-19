@@ -7,6 +7,12 @@ use Illuminate\Support\Facades\DB;
 
 class ContractTypeService
 {
+    public function __construct(
+        protected ContractMasterReference $references,
+        protected ContractPrintMasterTemplate $printTemplates
+    )
+    {
+    }
     /*
     |--------------------------------------------------------------------------
     | Store
@@ -22,6 +28,7 @@ class ContractTypeService
                 throw new \RuntimeException('Company aktif belum dipilih.');
             }
             $data['company_id'] = $companyId;
+            $this->applyReferenceDefaults($data);
 
             return ContractType::create($data);
 
@@ -48,12 +55,40 @@ class ContractTypeService
                 abort(403, 'Template kontrak bukan bagian dari company aktif.');
             }
 
+            $this->applyReferenceDefaults($data);
+
+            // A version gives HR an audit trail: new employee contracts take
+            // a snapshot of the new master, while issued contracts remain
+            // unchanged and printable as originally approved.
+            if (array_key_exists('template_body', $data)
+                && trim((string) $data['template_body']) !== trim((string) $contractType->template_body)) {
+                $data['template_version'] = ((int) $contractType->template_version) + 1;
+            }
+
             $contractType->update($data);
 
             return $contractType;
 
         });
 
+    }
+
+    /** Fill a newly selected official framework without overwriting edits. */
+    private function applyReferenceDefaults(array &$data): void
+    {
+        $reference = $this->references->find($data['template_key'] ?? null);
+        if (!$reference) {
+            return;
+        }
+
+        $data['is_probation'] = (bool) $reference['is_probation'];
+        $data['is_permanent'] = (bool) $reference['is_permanent'];
+        $data['default_duration_month'] = $data['default_duration_month'] ?: $reference['default_duration_month'];
+        // Master baru dimulai dengan 15 pasal yang sama dengan struktur cetak
+        // HR. Setelah disimpan, seluruh naskah menjadi milik editor master.
+        $data['template_body'] = trim((string) ($data['template_body'] ?? ''))
+            ?: $this->printTemplates->bodyFor($data['template_key']);
+        $data['legal_basis'] = trim((string) ($data['legal_basis'] ?? '')) ?: $reference['legal_basis'];
     }
 
     /*

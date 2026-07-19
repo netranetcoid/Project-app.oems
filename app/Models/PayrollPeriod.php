@@ -16,6 +16,7 @@ class PayrollPeriod extends Model
         'kpi_payment_date' => 'date',
         'approved_at' => 'datetime',
         'published_at' => 'datetime',
+        'total_company_burden' => 'decimal:2',
         'settings_snapshot' => 'array',
     ];
 

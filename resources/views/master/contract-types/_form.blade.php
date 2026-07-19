@@ -1,231 +1,97 @@
 @csrf
 
-<div class="row">
+@php
+    $selectedKey = old('template_key', $contractType->template_key ?? '');
+@endphp
 
-    <div class="col-md-4 mb-3">
-
-        <label class="form-label">
-            Kode
-        </label>
-
-        <input
-            type="text"
-            name="code"
-            class="form-control @error('code') is-invalid @enderror"
-            value="{{ old('code', $contractType->code ?? '') }}"
-            required>
-
-        @error('code')
-            <div class="invalid-feedback">
-                {{ $message }}
-            </div>
-        @enderror
-
+<div class="alert alert-info d-flex align-items-start gap-2 mb-4" role="alert">
+    <i class="ti ti-file-pencil fs-4"></i>
+    <div>
+        <strong>Master Kontrak adalah satu-satunya editor naskah.</strong><br>
+        Isi di bawah memakai struktur lengkap 15 pasal dari format <code>hr/contracts/print</code>. Edit seluruh pasal di sini; kontrak baru menerima snapshot naskah ini dan kontrak lama tidak berubah.
     </div>
-
-    <div class="col-md-8 mb-3">
-
-        <label class="form-label">
-            Nama Jenis Kontrak
-        </label>
-
-        <input
-            type="text"
-            name="name"
-            class="form-control @error('name') is-invalid @enderror"
-            value="{{ old('name', $contractType->name ?? '') }}"
-            required>
-
-        @error('name')
-            <div class="invalid-feedback">
-                {{ $message }}
-            </div>
-        @enderror
-
-    </div>
-
 </div>
 
-<div class="row">
-
-    <div class="col-md-4 mb-3">
-
-        <label class="form-label">
-            Durasi (Bulan)
-        </label>
-
-        <input
-            type="number"
-            name="default_duration_month"
-            class="form-control"
-            value="{{ old('default_duration_month', $contractType->default_duration_month ?? '') }}">
-
-    </div>
-
-    <div class="col-md-4 mb-3">
-
-        <label class="form-label">
-            Warna Badge
-        </label>
-
-        <select
-            name="color"
-            class="form-select">
-
-            @php
-                $colors=[
-                    'primary',
-                    'success',
-                    'warning',
-                    'danger',
-                    'info',
-                    'secondary'
-                ];
-            @endphp
-
-            @foreach($colors as $color)
-
-                <option
-                    value="{{ $color }}"
-                    @selected(old('color',$contractType->color ?? 'primary')==$color)>
-
-                    {{ ucfirst($color) }}
-
-                </option>
-
+<div class="row g-3">
+    <div class="col-md-6">
+        <label for="template_key" class="form-label">Kategori master kontrak</label>
+        <select id="template_key" name="template_key" class="form-select @error('template_key') is-invalid @enderror" required>
+            <option value="">-- Pilih kategori --</option>
+            @foreach($templateReferences as $key => $reference)
+                <option value="{{ $key }}" @selected($selectedKey === $key)>{{ $reference['label'] }}</option>
             @endforeach
-
         </select>
-
+        <div class="form-text">Kategori mengatur alur sistem. Naskah dan semua pasalnya tetap editable.</div>
+        @error('template_key')<div class="invalid-feedback">{{ $message }}</div>@enderror
     </div>
-
-    <div class="col-md-4">
-
-        <label class="form-label">
-
-            Status
-
-        </label>
-
-        <select
-            name="is_active"
-            class="form-select">
-
-            <option value="1"
-                @selected(old('is_active',$contractType->is_active ?? 1)==1)>
-
-                Aktif
-
-            </option>
-
-            <option value="0"
-                @selected(old('is_active',$contractType->is_active ?? 1)==0)>
-
-                Non Aktif
-
-            </option>
-
+    <div class="col-md-3">
+        <label for="code" class="form-label">Kode master</label>
+        <input id="code" type="text" name="code" class="form-control @error('code') is-invalid @enderror" value="{{ old('code', $contractType->code ?? '') }}" required>
+        @error('code')<div class="invalid-feedback">{{ $message }}</div>@enderror
+    </div>
+    <div class="col-md-3">
+        <label for="default_duration_month" class="form-label">Durasi default (bulan)</label>
+        <input id="default_duration_month" type="number" min="1" max="60" name="default_duration_month" class="form-control @error('default_duration_month') is-invalid @enderror" value="{{ old('default_duration_month', $contractType->default_duration_month ?? '') }}">
+        @error('default_duration_month')<div class="invalid-feedback">{{ $message }}</div>@enderror
+    </div>
+    <div class="col-md-8">
+        <label for="name" class="form-label">Nama master kontrak</label>
+        <input id="name" type="text" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name', $contractType->name ?? '') }}" required>
+        @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
+    </div>
+    <div class="col-md-2">
+        <label for="color" class="form-label">Warna badge</label>
+        <select id="color" name="color" class="form-select">
+            @foreach(['primary','success','warning','danger','info','secondary'] as $color)
+                <option value="{{ $color }}" @selected(old('color', $contractType->color ?? 'primary') === $color)>{{ ucfirst($color) }}</option>
+            @endforeach
         </select>
-
     </div>
-
+    <div class="col-md-2">
+        <label for="is_active" class="form-label">Status</label>
+        <select id="is_active" name="is_active" class="form-select">
+            <option value="1" @selected((string) old('is_active', $contractType->is_active ?? 1) === '1')>Aktif</option>
+            <option value="0" @selected((string) old('is_active', $contractType->is_active ?? 1) === '0')>Nonaktif</option>
+        </select>
+    </div>
 </div>
 
-<div class="row">
-
-    <div class="col-md-6">
-
-        <div class="form-check">
-
-            <input
-                class="form-check-input"
-                type="checkbox"
-                name="is_probation"
-                value="1"
-                @checked(old('is_probation',$contractType->is_probation ?? false))>
-
-            <label class="form-check-label">
-
-                Jenis Probation
-
-            </label>
-
+<div class="card border mt-4">
+    <div class="card-header border-0 pb-0">
+        <div class="d-flex flex-wrap gap-2 justify-content-between align-items-start">
+            <div>
+                <h5 class="mb-1"><i class="ti ti-file-description me-2"></i>Naskah Master Kontrak — 15 Pasal</h5>
+                <p class="small text-muted mb-0">Sumber isi adalah struktur kontrak HR yang dipakai saat cetak/PDF. Tidak ada panel acuan atau preview terpisah.</p>
+            </div>
+            @if(!empty($contractType))
+                <span class="badge bg-label-primary">Versi master: {{ $contractType->template_version }}</span>
+            @endif
         </div>
-
     </div>
-
-    <div class="col-md-6">
-
-        <div class="form-check">
-
-            <input
-                class="form-check-input"
-                type="checkbox"
-                name="is_permanent"
-                value="1"
-                @checked(old('is_permanent',$contractType->is_permanent ?? false))>
-
-            <label class="form-check-label">
-
-                Pegawai Tetap
-
-            </label>
-
+    <div class="card-body">
+        <div class="alert alert-warning small py-2">
+            Token yang tersedia: <code>[[employee_name]]</code>, <code>[[employee_no]]</code>, <code>[[position_name]]</code>, <code>[[division_name]]</code>, <code>[[branch_name]]</code>, <code>[[start_date]]</code>, <code>[[end_date]]</code>, <code>[[probation_end_date]]</code>, <code>[[duration_month]]</code>, <code>[[basic_salary]]</code>.
         </div>
-
+        <div class="mb-3">
+            <label for="legal_basis" class="form-label">Dasar / catatan review HR/legal</label>
+            <textarea id="legal_basis" name="legal_basis" rows="3" class="form-control @error('legal_basis') is-invalid @enderror" placeholder="Catatan legal internal dan tanggal review.">{{ old('legal_basis', $contractType->legal_basis ?? '') }}</textarea>
+            @error('legal_basis')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        </div>
+        <label for="template_body" class="form-label fw-semibold">Isi lengkap pasal kontrak (editable)</label>
+        <textarea id="template_body" name="template_body" rows="48" class="form-control font-monospace @error('template_body') is-invalid @enderror" placeholder="Naskah 15 pasal akan dibuat saat Master Kontrak baru disimpan.">{{ old('template_body', $contractType->template_body ?? '') }}</textarea>
+        @error('template_body')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        <div class="alert alert-success small mt-3 mb-0">
+            <strong>Aturan aman:</strong> perubahan ini hanya berlaku pada kontrak yang dibuat atau diperpanjang setelah master disimpan. Dokumen kontrak yang sudah diterbitkan tetap memakai versi snapshot sebelumnya.
+        </div>
     </div>
-
-</div>
-
-<div class="mt-3">
-
-    <label class="form-label">
-
-        Deskripsi
-
-    </label>
-
-    <textarea
-        name="description"
-        rows="4"
-        class="form-control">{{ old('description',$contractType->description ?? '') }}</textarea>
-
 </div>
 
 <div class="mt-4">
-
-    <button
-        class="btn btn-primary">
-
-        <i class="ti ti-device-floppy"></i>
-
-        Simpan
-
-    </button>
-
-    <a href="{{ route('master.contract-types.index') }}"
-       class="btn btn-label-secondary">
-
-        Kembali
-
-    </a>
-
+    <label for="description" class="form-label">Deskripsi internal</label>
+    <textarea id="description" name="description" rows="3" class="form-control">{{ old('description', $contractType->description ?? '') }}</textarea>
 </div>
 
-{{-- Split editor: kiri adalah pagar review legal, kanan adalah draft yang owner
-     edit. Sistem tidak mengklaim perubahan owner otomatis sah secara hukum. --}}
-<div class="row mt-4 g-4">
-    <div class="col-lg-5"><div class="card h-100 bg-label-primary"><div class="card-body">
-        <h5><i class="ti ti-scale me-2"></i>Acuan & Checklist Legal</h5>
-        <p class="small mb-3">Pilih salah satu dari empat kategori resmi internal: <strong>probation 3 bulan, PKWT 1, PKWT 2, atau magang</strong>. Review HR/legal wajib dilakukan sebelum kontrak diterbitkan atau diperpanjang.</p>
-        <div class="small text-muted mb-1">Dasar/catatan yang berlaku</div>
-        <div class="border rounded bg-white p-3 small">{{ old('legal_basis', $contractType->legal_basis ?? 'Isi dasar regulasi dan kebijakan perusahaan yang telah ditinjau HR/legal.') }}</div>
-        <hr><ul class="small mb-0"><li>Pastikan pihak, jabatan, masa berlaku, upah, dan lokasi kerja terisi.</li><li>Perubahan pasal penting harus tercatat sebagai revisi/addendum.</li><li>Template tetap dapat diedit, namun bukan pengganti review legal perusahaan.</li></ul>
-    </div></div></div>
-    <div class="col-lg-7"><div class="card h-100"><div class="card-body">
-        <h5 class="mb-3"><i class="ti ti-edit me-2"></i>Draft Editable Perusahaan</h5>
-        <div class="mb-3"><label class="form-label">Kunci Template</label><input type="text" name="template_key" class="form-control @error('template_key') is-invalid @enderror" value="{{ old('template_key', $contractType->template_key ?? '') }}" placeholder="probation / pkwt_1 / pkwt_2 / internship"><div class="form-text">Identitas template, bukan kode program.</div>@error('template_key')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-        <div class="mb-3"><label class="form-label">Isi Template / Addendum</label><textarea name="template_body" rows="8" class="form-control @error('template_body') is-invalid @enderror" placeholder="Gunakan token aman seperti [[employee_name]], [[start_date]], [[end_date]], [[duration_month]].">{{ old('template_body', $contractType->template_body ?? '') }}</textarea><div class="form-text">Teks dicetak sebagai lampiran ketentuan khusus; tidak dieksekusi sebagai PHP/Blade.</div>@error('template_body')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-        <div><label class="form-label">Dasar / Catatan Regulasi</label><textarea name="legal_basis" rows="4" class="form-control @error('legal_basis') is-invalid @enderror" placeholder="Contoh: PP 35/2021; review HR/legal sebelum diterbitkan.">{{ old('legal_basis', $contractType->legal_basis ?? '') }}</textarea>@error('legal_basis')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-    </div></div></div>
+<div class="mt-4 d-flex gap-2">
+    <button class="btn btn-primary"><i class="ti ti-device-floppy"></i> Simpan Master Kontrak</button>
+    <a href="{{ route('master.contract-types.index') }}" class="btn btn-label-secondary">Kembali</a>
 </div>

@@ -70,7 +70,9 @@ class EmployeeContractService
             $data['is_latest'] = true;
 
             $data['status'] = $data['status'] ?? 'draft';
-            $data['contract_body'] = $data['contract_body'] ?? $type->template_body;
+            // Employee contracts are never edited as a document. They receive
+            // an immutable snapshot from Contract Master at creation time.
+            $data['contract_body'] = $type->template_body;
             $data['settings'] = array_merge(
                 is_array($data['settings'] ?? null) ? $data['settings'] : [],
                 ['template_key' => $type->template_key, 'template_version' => $type->template_version]
@@ -139,7 +141,9 @@ class EmployeeContractService
             $data['is_latest'] = true;
 
             $data['status'] = $data['status'] ?? 'draft';
-            $data['contract_body'] = $data['contract_body'] ?? $type->template_body;
+            // An extension is a new document and therefore takes the current
+            // approved Contract Master snapshot.
+            $data['contract_body'] = $type->template_body;
             $data['settings'] = [
                 'template_key' => $type->template_key,
                 'template_version' => $type->template_version,
@@ -167,7 +171,12 @@ class EmployeeContractService
             ->findOrFail($data['contract_type_id']);
 
         $this->applyTermDefaults($data, $type);
-        $data['contract_body'] = $data['contract_body'] ?? $type->template_body;
+        // Editing an employee contract may change dates or administrative
+        // fields only. Its document body stays frozen unless HR intentionally
+        // changes the master type, in which case a new master snapshot is used.
+        $data['contract_body'] = (int) $contract->contract_type_id === (int) $type->id
+            ? ($contract->contract_body ?: $type->template_body)
+            : $type->template_body;
         $data['settings'] = array_merge(
             is_array($contract->settings) ? $contract->settings : [],
             ['template_key' => $type->template_key, 'template_version' => $type->template_version]

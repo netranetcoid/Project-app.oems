@@ -145,6 +145,8 @@ class RolePermissionSeeder extends Seeder
             'kpi.view',
 
             'payroll.view',
+            'bpjs-calculation.view',
+            'employee-cost.view',
 
             'business-trip.view',
             'vehicle-cost.view',
@@ -190,10 +192,23 @@ class RolePermissionSeeder extends Seeder
             'employees.update',
             'employees.delete',
 
+            'employee-document.view',
+            'employee-document.manage',
+
             'contract-type.view',
             'contract-type.create',
             'contract-type.update',
             'contract-type.delete',
+
+            'company-document.view',
+            'company-document.create',
+            'company-document.update',
+            'company-document.delete',
+            'bpjs-registration.view',
+            'bpjs-registration.manage',
+            'bpjs-calculation.view',
+            'bpjs-calculation.manage',
+            'employee-cost.view',
 
             'attendance.view',
             'attendance.create',
@@ -238,7 +253,11 @@ class RolePermissionSeeder extends Seeder
             'payroll.create',
             'payroll.update',
             'payroll.approve',
+
+            'bpjs-calculation.view',
             'payroll.publish',
+
+            'employee-cost.view',
 
             'report.view',
 
@@ -262,6 +281,8 @@ class RolePermissionSeeder extends Seeder
             'payroll.create',
             'payroll.update',
             'payroll.approve',
+
+            'employee-cost.view',
 
             'report.view',
             'report.export',

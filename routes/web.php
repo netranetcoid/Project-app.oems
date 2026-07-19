@@ -56,6 +56,18 @@ Route::middleware([
     Route::resource('employees', EmployeeController::class)
     ->names('employees');
 
+    /* Dokumen identitas pegawai disimpan privat dan tidak memakai storage URL. */
+    Route::get('/employees/{employee}/documents', [\App\Http\Controllers\Master\EmployeeDocumentController::class, 'index'])
+      ->middleware('permission:employee-document.view')->name('employees.documents.index');
+    Route::post('/employees/{employee}/documents', [\App\Http\Controllers\Master\EmployeeDocumentController::class, 'store'])
+      ->middleware('permission:employee-document.manage')->name('employees.documents.store');
+    Route::put('/employees/{employee}/documents/{document}/status', [\App\Http\Controllers\Master\EmployeeDocumentController::class, 'updateStatus'])
+      ->middleware('permission:employee-document.manage')->name('employees.documents.status');
+    Route::get('/employees/{employee}/documents/{document}/download', [\App\Http\Controllers\Master\EmployeeDocumentController::class, 'download'])
+      ->middleware('permission:employee-document.view')->name('employees.documents.download');
+    Route::delete('/employees/{employee}/documents/{document}', [\App\Http\Controllers\Master\EmployeeDocumentController::class, 'destroy'])
+      ->middleware('permission:employee-document.manage')->name('employees.documents.destroy');
+
 });
 
 /*
@@ -76,6 +88,15 @@ Route::middleware([
   Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware('permission:dashboard.view')
     ->name('dashboard');
+
+  // Lonceng mengambang pengajuan dari APK OvallHR. Semua endpoint tetap
+  // berada di session company AppOEMS, bukan API publik/mobile.
+  Route::get('/notifications/ovallhr', [\App\Http\Controllers\System\OvallHrNotificationController::class, 'index'])
+    ->middleware('permission:hr-request.view')
+    ->name('notifications.ovallhr.index');
+  Route::get('/notifications/ovallhr/{notification}/open', [\App\Http\Controllers\System\OvallHrNotificationController::class, 'open'])
+    ->middleware('permission:hr-request.view')
+    ->name('notifications.ovallhr.open');
 
   /*
   |--------------------------------------------------------------------------
@@ -119,6 +140,10 @@ Route::middleware([
       ->middleware('permission:mobile-release.manage')->name('mobile-features.store');
     Route::post('/mobile-features/{feature}/toggle', [\App\Http\Controllers\Setting\MobileReleaseCenterController::class, 'toggleFeature'])
       ->middleware('permission:mobile-release.manage')->name('mobile-features.toggle');
+    Route::post('/mobile-features/{key}/toggle-menu', [\App\Http\Controllers\Setting\MobileReleaseCenterController::class, 'toggleKnownFeature'])
+      ->middleware('permission:mobile-release.manage')->name('mobile-features.toggle-known');
+    Route::put('/mobile-features/{key}/menu', [\App\Http\Controllers\Setting\MobileReleaseCenterController::class, 'updateKnownFeature'])
+      ->middleware('permission:mobile-release.manage')->name('mobile-features.update-known');
 
     Route::get('/user-access/data', [UserAccessController::class, 'data'])
       ->middleware('permission:users.view')
@@ -195,6 +220,17 @@ Route::middleware([
     Route::post('/integrations/health', [\App\Http\Controllers\Setting\IntegrationCenterController::class, 'refreshHealth'])
       ->middleware('permission:health.view')
       ->name('integrations.health');
+
+    /* Tarif BPJS merupakan master payroll; controller hanya mengarahkan ke service. */
+    Route::get('/bpjs-calculation', [\App\Http\Controllers\Setting\BpjsCalculationController::class, 'index'])
+      ->middleware('permission:bpjs-calculation.view')
+      ->name('bpjs-calculation.index');
+    Route::put('/bpjs-calculation', [\App\Http\Controllers\Setting\BpjsCalculationController::class, 'update'])
+      ->middleware('permission:bpjs-calculation.manage')
+      ->name('bpjs-calculation.update');
+    Route::post('/bpjs-calculation/preview', [\App\Http\Controllers\Setting\BpjsCalculationController::class, 'preview'])
+      ->middleware('permission:bpjs-calculation.view')
+      ->name('bpjs-calculation.preview');
   });
 
   /*
@@ -303,7 +339,57 @@ Route::put('/contract-types/{contractType}', [\App\Http\Controllers\Master\Contr
 Route::delete('/contract-types/{contractType}', [\App\Http\Controllers\Master\ContractTypeController::class, 'destroy'])
     ->middleware('permission:contract-type.delete')
     ->name('contract-types.destroy');
+
+/*
+|--------------------------------------------------------------------------
+| Master Dokumen Perusahaan
+|--------------------------------------------------------------------------
+| Template surat/SOP dipisahkan dari kontrak pegawai. Kontrak tetap dikelola
+| pada Master Kontrak agar perubahan pasal tidak mengubah dokumen pegawai.
+*/
+Route::get('/company-documents', [\App\Http\Controllers\Master\CompanyDocumentController::class, 'index'])
+    ->middleware('permission:company-document.view')
+    ->name('company-documents.index');
+Route::get('/company-documents/create', [\App\Http\Controllers\Master\CompanyDocumentController::class, 'create'])
+    ->middleware('permission:company-document.create')
+    ->name('company-documents.create');
+Route::post('/company-documents', [\App\Http\Controllers\Master\CompanyDocumentController::class, 'store'])
+    ->middleware('permission:company-document.create')
+    ->name('company-documents.store');
+Route::get('/company-documents/{companyDocument}', [\App\Http\Controllers\Master\CompanyDocumentController::class, 'show'])
+    ->middleware('permission:company-document.view')
+    ->name('company-documents.show');
+Route::get('/company-documents/{companyDocument}/edit', [\App\Http\Controllers\Master\CompanyDocumentController::class, 'edit'])
+    ->middleware('permission:company-document.update')
+    ->name('company-documents.edit');
+Route::put('/company-documents/{companyDocument}', [\App\Http\Controllers\Master\CompanyDocumentController::class, 'update'])
+    ->middleware('permission:company-document.update')
+    ->name('company-documents.update');
+Route::delete('/company-documents/{companyDocument}', [\App\Http\Controllers\Master\CompanyDocumentController::class, 'destroy'])
+    ->middleware('permission:company-document.delete')
+    ->name('company-documents.destroy');
+Route::get('/company-documents/{companyDocument}/print', [\App\Http\Controllers\Master\CompanyDocumentController::class, 'print'])
+    ->middleware('permission:company-document.view')
+    ->name('company-documents.print');
     }); // <-- tutup master di sini
+
+/*
+|--------------------------------------------------------------------------
+| BPJS Readiness Center
+|--------------------------------------------------------------------------
+| Internal readiness only. The official filing remains in BPJS official
+| channels after HR verifies F1/F1a/F2 and the supporting documents.
+*/
+Route::prefix('hr/bpjs-readiness')->name('hr.bpjs-readiness.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\HR\BpjsReadinessController::class, 'index'])
+        ->middleware('permission:bpjs-registration.view')->name('index');
+    Route::put('/profile', [\App\Http\Controllers\HR\BpjsReadinessController::class, 'updateProfile'])
+        ->middleware('permission:bpjs-registration.manage')->name('profile.update');
+    Route::put('/employees/{employee}', [\App\Http\Controllers\HR\BpjsReadinessController::class, 'updateEmployee'])
+        ->middleware('permission:bpjs-registration.manage')->name('employees.update');
+    Route::get('/print', [\App\Http\Controllers\HR\BpjsReadinessController::class, 'print'])
+        ->middleware('permission:bpjs-registration.view')->name('print');
+});
 /*
 |--------------------------------------------------------------------------
 | Attendance
@@ -469,6 +555,11 @@ Route::prefix('hr')
             Route::get('/slips/{slip}/print', [\App\Http\Controllers\HR\PayrollController::class, 'payslip'])
                 ->middleware('permission:payroll.view')->name('payslip');
         });
+
+        // Pusat laporan biaya pegawai; middleware permission dan controller
+        // keduanya menjaga agar data selalu terbatas pada company aktif.
+        Route::get('/employee-costs', [\App\Http\Controllers\HR\EmployeeCostCenterController::class, 'index'])
+            ->middleware('permission:employee-cost.view')->name('employee-costs.index');
 
         Route::prefix('operations')->name('operations.')->group(function () {
             Route::get('/', [\App\Http\Controllers\HR\OperationsController::class,'index'])->middleware('permission:business-trip.view')->name('index');

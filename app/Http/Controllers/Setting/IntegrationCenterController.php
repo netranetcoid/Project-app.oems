@@ -90,6 +90,7 @@ class IntegrationCenterController extends Controller
             'connection_test_path' => ['nullable', 'string', 'max:255', 'regex:/^\\//'],
             'allow_inbound' => ['nullable', 'boolean'],
             'allow_outbound' => ['nullable', 'boolean'],
+            'bpjs_payload_enabled' => ['nullable', 'boolean'],
             'confirm_live' => ['nullable', 'boolean'],
             'is_enabled' => ['nullable', 'boolean'],
             'cutover_at' => ['nullable', 'date'],
@@ -125,6 +126,9 @@ class IntegrationCenterController extends Controller
             'connection_test_path' => $data['connection_test_path'] ?: ($existingSettings['connection_test_path'] ?? '/api/v1/integrations/appoems/connection-test'),
             'dummy_only' => $mode === 'mock',
             'live_activation_confirmed' => $mode === 'live',
+            // Payroll inti selalu memakai outbound umum. Toggle ini hanya
+            // menentukan apakah nominal BPJS dilampirkan ke payload AppBill.
+            'bpjs_payload_enabled' => $request->boolean('bpjs_payload_enabled'),
         ]);
 
         $connection->update([
@@ -142,9 +146,21 @@ class IntegrationCenterController extends Controller
             'health_status' => $mode === 'live' ? 'not_configured' : 'ready',
         ]);
 
-        return back()->with('success', $mode === 'live'
+        $cancelled = 0;
+        if (! $request->boolean('bpjs_payload_enabled')) {
+            $cancelled = $this->appBill->redactPendingPayrollBpjs($connection);
+        }
+
+        $message = $mode === 'live'
             ? 'Konfigurasi live AppBill tersimpan. Jalankan uji staging sebelum cutover.'
-            : 'Konfigurasi dummy AppBill diperbarui; tidak ada data keluar ke jaringan.');
+            : 'Konfigurasi dummy AppBill diperbarui; tidak ada data keluar ke jaringan.';
+        if (! $request->boolean('bpjs_payload_enabled')) {
+            $message .= $cancelled > 0
+                ? " Payroll normal tetap dikirim; rincian BPJS dihapus dari {$cancelled} antrean payroll yang belum terkirim."
+                : ' Payroll normal tetap dikirim tanpa rincian BPJS.';
+        }
+
+        return back()->with('success', $message);
     }
 
     public function queueTest(Request $request): RedirectResponse

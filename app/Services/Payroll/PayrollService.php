@@ -5,6 +5,7 @@ namespace App\Services\Payroll;
 use App\Models\Employee;
 use App\Models\EmployeeKpiAssessment;
 use App\Models\EmployeeReceivable;
+use App\Models\BpjsSetting;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollSlip;
 use Carbon\Carbon;
@@ -13,6 +14,10 @@ use Illuminate\Validation\ValidationException;
 
 class PayrollService
 {
+    public function __construct(private PayrollCalculationService $calculator)
+    {
+    }
+
     public function generate(int $companyId, int $year, int $month, int $userId): PayrollPeriod
     {
         return DB::transaction(function () use ($companyId, $year, $month, $userId): PayrollPeriod {
@@ -33,10 +38,14 @@ class PayrollService
                 throw ValidationException::withMessages(['period' => 'Payroll yang sudah diajukan/disetujui tidak boleh dihitung ulang.']);
             }
 
+            // Konfigurasi diambil sekali untuk seluruh periode agar setiap slip
+            // konsisten, lalu disimpan kembali sebagai snapshot di masing-masing slip.
+            $bpjsSetting = $this->calculator->settingForCompany($companyId);
+
             Employee::forCompany($companyId)->active()->with(['branch', 'position'])
-                ->where('basic_salary', '>', 0)->chunkById(100, function ($employees) use ($period): void {
+                ->where('basic_salary', '>', 0)->chunkById(100, function ($employees) use ($period, $bpjsSetting): void {
                     foreach ($employees as $employee) {
-                        $this->buildSlip($period, $employee);
+                        $this->buildSlip($period, $employee, $bpjsSetting);
                     }
                 });
 
@@ -44,7 +53,7 @@ class PayrollService
         });
     }
 
-    private function buildSlip(PayrollPeriod $period, Employee $employee): void
+    private function buildSlip(PayrollPeriod $period, Employee $employee, BpjsSetting $bpjsSetting): void
     {
         $income = [
             'basic_salary' => (float) $employee->basic_salary,
@@ -58,6 +67,8 @@ class PayrollService
             ->whereDate('first_deduction_date', '<=', $period->salary_payment_date)->get();
         $receivableDeduction = $receivables->sum(fn ($item) => min((float) $item->installment_amount, (float) $item->remaining_amount));
         $gross = array_sum($income);
+        $bpjs = $this->calculator->calculateForEmployee($employee, $bpjsSetting);
+        $payrollTotals = $this->calculator->finalizePayroll($gross, $receivableDeduction, $bpjs);
 
         $kpiBonus = (float) EmployeeKpiAssessment::forCompany((int) $period->company_id)
             ->where('employee_id', $employee->id)->where('period_year', $period->period_year)
@@ -77,12 +88,27 @@ class PayrollService
                 ...$income,
                 'gross_income' => $gross,
                 'receivable_deduction' => $receivableDeduction,
-                'total_deduction' => $receivableDeduction,
-                'net_pay' => max(0, $gross - $receivableDeduction),
+                // Komponen BPJS perusahaan dan karyawan tersimpan terpisah
+                // untuk slip, akuntansi AppBill, dan audit regulasi.
+                'bpjs_wage_base' => $bpjs['bpjs_wage_base'],
+                'bpjs_kesehatan_perusahaan' => $bpjs['bpjs_kesehatan_perusahaan'],
+                'bpjs_kesehatan_karyawan' => $bpjs['bpjs_kesehatan_karyawan'],
+                'jht_perusahaan' => $bpjs['jht_perusahaan'],
+                'jht_karyawan' => $bpjs['jht_karyawan'],
+                'jp_perusahaan' => $bpjs['jp_perusahaan'],
+                'jp_karyawan' => $bpjs['jp_karyawan'],
+                'jkk' => $bpjs['jkk'],
+                'jkm' => $bpjs['jkm'],
+                'total_company_burden' => $payrollTotals['total_company_burden'],
+                'total_deduction' => $payrollTotals['total_deduction'],
+                'net_pay' => $payrollTotals['take_home_pay'],
                 'kpi_bonus' => $kpiBonus,
                 'kpi_payment_date' => $period->kpi_payment_date,
                 'status' => 'draft',
-                'calculation_snapshot' => ['generated_at' => now()->toIso8601String()],
+                'calculation_snapshot' => [
+                    'generated_at' => now()->toIso8601String(),
+                    'bpjs' => $bpjs['setting_snapshot'],
+                ],
             ]
         );
 
@@ -97,6 +123,26 @@ class PayrollService
                 'code' => 'receivable', 'name' => 'Cicilan ' . $receivable->receivable_no,
                 'amount' => $amount, 'metadata' => ['applied' => false],
             ]);
+        }
+        foreach ([
+            ['bpjs_kesehatan_karyawan', 'BPJS Kesehatan (Karyawan)'],
+            ['jht_karyawan', 'JHT (Karyawan)'],
+            ['jp_karyawan', 'JP (Karyawan)'],
+        ] as [$code, $name]) {
+            if ($bpjs[$code] > 0) {
+                $slip->items()->create(['category' => 'deduction', 'code' => $code, 'name' => $name, 'amount' => $bpjs[$code]]);
+            }
+        }
+        foreach ([
+            ['bpjs_kesehatan_perusahaan', 'BPJS Kesehatan (Beban Perusahaan)'],
+            ['jht_perusahaan', 'JHT (Beban Perusahaan)'],
+            ['jp_perusahaan', 'JP (Beban Perusahaan)'],
+            ['jkk', 'JKK (Beban Perusahaan)'],
+            ['jkm', 'JKM (Beban Perusahaan)'],
+        ] as [$code, $name]) {
+            if ($bpjs[$code] > 0) {
+                $slip->items()->create(['category' => 'employer_cost', 'code' => $code, 'name' => $name, 'amount' => $bpjs[$code]]);
+            }
         }
     }
 
@@ -147,8 +193,8 @@ class PayrollService
 
     private function recalculateTotals(PayrollPeriod $period): PayrollPeriod
     {
-        $totals = $period->slips()->selectRaw('COALESCE(SUM(gross_income),0) gross, COALESCE(SUM(total_deduction),0) deductions, COALESCE(SUM(net_pay),0) net, COALESCE(SUM(kpi_bonus),0) kpi')->first();
-        $period->update(['total_gross' => $totals->gross, 'total_deduction' => $totals->deductions, 'total_net' => $totals->net, 'total_kpi_bonus' => $totals->kpi]);
+        $totals = $period->slips()->selectRaw('COALESCE(SUM(gross_income),0) gross, COALESCE(SUM(total_deduction),0) deductions, COALESCE(SUM(net_pay),0) net, COALESCE(SUM(kpi_bonus),0) kpi, COALESCE(SUM(total_company_burden),0) company_burden')->first();
+        $period->update(['total_gross' => $totals->gross, 'total_deduction' => $totals->deductions, 'total_net' => $totals->net, 'total_kpi_bonus' => $totals->kpi, 'total_company_burden' => $totals->company_burden]);
         return $period->fresh('slips');
     }
 }

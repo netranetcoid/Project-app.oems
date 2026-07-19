@@ -59,17 +59,27 @@ class AppServiceProvider extends ServiceProvider
 
     View::composer('*', function ($view) {
       try {
-        if (!Schema::hasTable('menus')) {
-          return;
+        if (Schema::hasTable('menus')) {
+          $menuData = app(MenuService::class)->getMenuData();
+
+          if (
+            isset($menuData[0]->menu)
+            && collect($menuData[0]->menu)->isNotEmpty()
+          ) {
+            $view->with('menuData', $menuData);
+          }
         }
 
-        $menuData = app(MenuService::class)->getMenuData();
-
-        if (
-          isset($menuData[0]->menu)
-          && collect($menuData[0]->menu)->isNotEmpty()
-        ) {
-          $view->with('menuData', $menuData);
+        // Navbar memakai data ini untuk lonceng pengajuan OvallHR. Query
+        // ditutup oleh pengecekan tabel supaya deployment sebelum migrate
+        // tidak menghasilkan HTTP 500.
+        if (auth()->check() && Schema::hasTable('notifications')) {
+          $notifications = auth()->user()->unreadNotifications()
+            ->where('type', \App\Notifications\OvallHrEmployeeRequestSubmitted::class)
+            ->latest()
+            ->limit(8)
+            ->get();
+          $view->with('ovallHrUnreadNotifications', $notifications);
         }
       } catch (Throwable $e) {
         report($e);

@@ -20,6 +20,8 @@ class PayrollController extends Controller
                 'id' => $slip->id,
                 'period' => sprintf('%02d/%04d', $slip->period->period_month, $slip->period->period_year),
                 'net_pay' => (float) $slip->net_pay,
+                'total_deduction' => (float) $slip->total_deduction,
+                'total_company_burden' => (float) $slip->total_company_burden,
                 'kpi_bonus' => (float) $slip->kpi_bonus,
                 'kpi_payment_date' => $slip->kpi_payment_date?->toDateString(),
                 'status' => $slip->status,

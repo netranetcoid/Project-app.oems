@@ -15,6 +15,10 @@ class EmployeeRequestService
 {
     public const TYPES = ['leave', 'permission', 'sick', 'overtime', 'reimbursement', 'cash_advance', 'receivable'];
 
+    public function __construct(private readonly EmployeeRequestNotificationService $notifications)
+    {
+    }
+
     public function submit(Employee $employee, array $data, ?string $documentPath = null): EmployeeRequest
     {
         $type = (string) $data['type'];
@@ -42,7 +46,7 @@ class EmployeeRequestService
             throw ValidationException::withMessages(['installment_count' => 'Jumlah cicilan melebihi batas kebijakan HR.']);
         }
 
-        return EmployeeRequest::create([
+        $request = EmployeeRequest::create([
             'company_id' => $employee->company_id,
             'branch_id' => $employee->branch_id,
             'employee_id' => $employee->id,
@@ -59,6 +63,12 @@ class EmployeeRequestService
             'submitted_at' => now(),
             'metadata' => ['policy_snapshot' => $policy?->toArray()],
         ]);
+
+        // Setelah record berhasil tersimpan, HR/reviewer mendapat pekerjaan
+        // baru di lonceng AppOEMS tanpa bergantung pada refresh halaman.
+        $this->notifications->notifyReviewers($request->load('employee'));
+
+        return $request;
     }
 
     public function approve(EmployeeRequest $request, int $approverId, array $data = []): EmployeeRequest

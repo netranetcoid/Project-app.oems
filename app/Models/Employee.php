@@ -36,6 +36,9 @@ class Employee extends Model
 
         'resign_date'           => 'date',
 
+        // Kesiapan BPJS dipakai HR saat onboarding dan rekonsiliasi F1a.
+        'bpjs_effective_date'   => 'date',
+
         /*
         |--------------------------------------------------------------------------
         | Salary
@@ -325,6 +328,12 @@ public function user(): BelongsTo
             Employee::class,
             'manager_employee_id'
         );
+    }
+
+    /** Dokumen identitas/administrasi tersimpan privat dan dibuka berizin. */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(EmployeeDocument::class);
     }
 
     /*

@@ -206,6 +206,18 @@
 
                     <li class="nav-item">
 
+                        <a class="nav-link" href="{{ route('employees.documents.index', $employee) }}">
+
+                            <i class="ti ti-folder-lock me-1"></i>
+
+                            Dokumen
+
+                        </a>
+
+                    </li>
+
+                    <li class="nav-item">
+
                         <button class="nav-link"
                                 data-bs-toggle="tab"
                                 data-bs-target="#employment"

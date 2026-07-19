@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Master\ContractType\StoreContractTypeRequest;
 use App\Http\Requests\Master\ContractType\UpdateContractTypeRequest;
 use App\Models\ContractType;
+use App\Services\Contract\ContractMasterReference;
 use App\Services\Contract\ContractTypeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -60,13 +61,13 @@ class ContractTypeController extends Controller
 
         ];
 
-        return view(
-            'master.contract-types.index',
-            compact(
-                'contractTypes',
-                'stats'
-            )
-        );
+        return view('master.contract-types.index', [
+            'contractTypes' => $contractTypes,
+            'stats' => $stats,
+            // Hanya untuk label kategori di daftar. Editor dokumen tetap
+            // berada di halaman Master Kontrak agar tidak salah ubah template.
+            'templateReferences' => app(ContractMasterReference::class)->all(),
+        ]);
     }
 
     /*
@@ -77,9 +78,9 @@ class ContractTypeController extends Controller
 
     public function create(): View
     {
-        return view(
-            'master.contract-types.create'
-        );
+        return view('master.contract-types.create', [
+            'templateReferences' => app(ContractMasterReference::class)->all(),
+        ]);
     }
 
     /*
@@ -119,12 +120,10 @@ class ContractTypeController extends Controller
             403
         );
 
-        return view(
-            'master.contract-types.edit',
-            compact(
-                'contractType'
-            )
-        );
+        return view('master.contract-types.edit', [
+            'contractType' => $contractType,
+            'templateReferences' => app(ContractMasterReference::class)->all(),
+        ]);
     }
 
     /*

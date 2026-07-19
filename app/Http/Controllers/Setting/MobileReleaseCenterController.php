@@ -16,9 +16,23 @@ class MobileReleaseCenterController extends Controller
     public function index(): View
     {
         $companyId = (int) session('company_id');
+        $savedFeatures = MobileFeatureFlag::forCompany($companyId)->get()->keyBy('key');
+
         return view('setting.mobile-releases.index', [
             'releases' => MobileAppRelease::forCompany($companyId)->latest('version_code')->paginate(15),
-            'features' => MobileFeatureFlag::forCompany($companyId)->orderBy('name')->get(),
+            // Semua menu yang dipahami APK selalu ditampilkan. Record database
+            // hanya diperlukan bila owner ingin menyembunyikan/menampilkan
+            // menu; tanpa record, default APK adalah aktif.
+            'featureCatalog' => collect($this->featureDefinitions())->map(
+                fn (array $definition, string $key): array => array_merge($definition, [
+                    'key' => $key,
+                    'feature' => $savedFeatures->get($key),
+                    'is_enabled' => (bool) optional($savedFeatures->get($key))->is_enabled || ! $savedFeatures->has($key),
+                ])
+            )->values(),
+            'customFeatures' => $savedFeatures
+                ->reject(fn (MobileFeatureFlag $feature): bool => array_key_exists($feature->key, $this->featureDefinitions()))
+                ->values(),
         ]);
     }
 
@@ -111,6 +125,74 @@ class MobileReleaseCenterController extends Controller
         $this->company($feature);
         $feature->update(['is_enabled' => ! $feature->is_enabled]);
         return back()->with('success', 'Status feature mobile diperbarui.');
+    }
+
+    /**
+     * Tombol satu klik untuk menu yang memang didukung APK OvallHR.
+     * Record baru dibuat hanya ketika default aktif perlu disembunyikan.
+     */
+    public function toggleKnownFeature(string $key): RedirectResponse
+    {
+        $definition = $this->featureDefinitions()[$key] ?? abort(404);
+        $companyId = (int) session('company_id');
+        $feature = MobileFeatureFlag::forCompany($companyId)->where('key', $key)->first();
+        $currentEnabled = $feature?->is_enabled ?? true;
+
+        MobileFeatureFlag::updateOrCreate(
+            ['company_id' => $companyId, 'key' => $key],
+            [
+                'name' => $feature?->name ?: $definition['name'],
+                'description' => $feature?->description ?: $definition['description'],
+                'is_enabled' => ! $currentEnabled,
+                'value' => $feature?->value,
+            ]
+        );
+
+        return back()->with('success', $currentEnabled
+            ? $definition['name'] . ' disembunyikan dari OvallHR.'
+            : $definition['name'] . ' ditampilkan di OvallHR.');
+    }
+
+    /** Edit keterangan internal tanpa memberi owner field key/JSON teknis. */
+    public function updateKnownFeature(Request $request, string $key): RedirectResponse
+    {
+        $definition = $this->featureDefinitions()[$key] ?? abort(404);
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $companyId = (int) session('company_id');
+        $feature = MobileFeatureFlag::forCompany($companyId)->where('key', $key)->first();
+
+        MobileFeatureFlag::updateOrCreate(
+            ['company_id' => $companyId, 'key' => $key],
+            [
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null,
+                // Menu yang belum pernah dikunci tetap aktif saat catatan
+                // adminnya diedit.
+                'is_enabled' => $feature?->is_enabled ?? true,
+                'value' => $feature?->value,
+            ]
+        );
+
+        return back()->with('success', ($data['name'] ?: $definition['name']) . ' berhasil diperbarui.');
+    }
+
+    /** @return array<string, array{name: string, description: string, icon: string}> */
+    private function featureDefinitions(): array
+    {
+        return [
+            'attendance' => ['name' => 'Presensi', 'description' => 'Menu presensi masuk, pulang, selfie, GPS, dan histori.', 'icon' => 'ti ti-fingerprint'],
+            'leave' => ['name' => 'Izin & Cuti', 'description' => 'Pengajuan izin, cuti, dan sakit.', 'icon' => 'ti ti-calendar-event'],
+            'payroll' => ['name' => 'Slip Gaji', 'description' => 'Slip gaji dan rincian penghasilan pegawai.', 'icon' => 'ti ti-receipt-2'],
+            'schedule' => ['name' => 'Jadwal', 'description' => 'Jadwal shift dan penugasan pegawai.', 'icon' => 'ti ti-calendar-time'],
+            'overtime' => ['name' => 'Lembur', 'description' => 'Presensi masuk/keluar lembur dan histori bukti.', 'icon' => 'ti ti-clock-hour-8'],
+            'kpi' => ['name' => 'KPI', 'description' => 'Nilai KPI dan bonus yang telah disetujui.', 'icon' => 'ti ti-chart-line'],
+            'tasks' => ['name' => 'Tugas', 'description' => 'Daftar tugas dan progres pekerjaan pegawai.', 'icon' => 'ti ti-list-check'],
+            'reimbursement' => ['name' => 'Klaim', 'description' => 'Pengajuan klaim atau reimbursement pegawai.', 'icon' => 'ti ti-file-invoice'],
+            'announcements' => ['name' => 'Info', 'description' => 'Pengumuman perusahaan pada aplikasi.', 'icon' => 'ti ti-speakerphone'],
+        ];
     }
 
     private function company(MobileAppRelease|MobileFeatureFlag $record): void

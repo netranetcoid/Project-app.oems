@@ -25,6 +25,8 @@ class FirstLoginSeeder extends Seeder
             MenuSeeder::class,
             MenuRolePermissionFixSeeder::class,
             ContractTemplateSeeder::class,
+            CompanyDocumentSeeder::class,
+            BpjsSettingSeeder::class,
             HrRequestPolicySeeder::class,
             KpiFrameworkSeeder::class,
             BusinessTripPolicySeeder::class,

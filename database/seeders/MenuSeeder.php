@@ -34,6 +34,10 @@ class MenuSeeder extends Seeder
                 'master-shift-assignments', 'master-compensation',
                 'master-kpi-aspects', 'attendance', 'hr-requests',
                 'hr-payroll', 'hr-kpi', 'mobile-release-center',
+                // Roadmap pernah ditambahkan sebagai eksperimen visual. Owner
+                // meminta modulnya dicabut; sembunyikan record lama saat seeder
+                // dijalankan ulang tanpa menyentuh menu custom lain.
+                'employee-roadmap',
                 // Parent/child legacy ini dahulu dibuat oleh compatibility
                 // seeder dan menjadi sumber menu System ganda.
                 'settings', 'settings.role-permission', 'settings.user-access',
@@ -116,6 +120,7 @@ class MenuSeeder extends Seeder
         $this->child($modules['master'] ?? null, $master, 'division', 'Divisi', 'master.divisions.index', 'division.view', 3, 'ri ri-node-tree');
         $this->child($modules['master'] ?? null, $master, 'position', 'Jabatan & Batas KPI', 'master.positions.index', 'position.view', 4, 'ri ri-organization-chart');
         $this->child($modules['master'] ?? null, $master, 'contract-type', 'Jenis Kontrak', 'master.contract-types.index', 'contract-type.view', 5, 'ri ri-file-list-3-line');
+        $this->child($modules['master'] ?? null, $master, 'company-documents', 'Master Dokumen', 'master.company-documents.index', 'company-document.view', 6, 'ri ri-folder-paper-line');
         $this->child($modules['attendance'] ?? null, $master, 'master-attendance-shifts', 'Shift Kerja', 'attendance.shifts.index', 'attendance.shift.view', 6, 'ri ri-time-line');
         $this->child($modules['attendance'] ?? null, $master, 'master-shift-assignments', 'Jadwal / Penugasan', 'attendance.shift-assignments.index', 'attendance.shift.assignment.view', 7, 'ri ri-calendar-schedule-line');
         $this->child($modules['payroll'] ?? null, $master, 'master-compensation', 'Gaji & Tunjangan', 'hr.compensation.index', 'payroll.view', 8, 'ri ri-wallet-3-line');
@@ -127,9 +132,12 @@ class MenuSeeder extends Seeder
         $this->child($modules['employee'] ?? null, $hr, 'employee-contracts', 'Kontrak Kerja', 'hr.contracts.index', 'employees.view', 2, 'ri ri-file-paper-2-line');
         $this->child($modules['attendance'] ?? null, $hr, 'attendance', 'Absensi', 'attendance.index', 'attendance.view', 3, 'ri ri-fingerprint-line');
         $this->child($modules['leave'] ?? null, $hr, 'hr-requests', 'Pengajuan & Approval', 'hr.requests.index', 'hr-request.view', 4, 'ri ri-file-check-line');
-        $this->child($modules['payroll'] ?? null, $hr, 'hr-payroll', 'Payroll & Slip Gaji', 'hr.payroll.index', 'payroll.view', 5, 'ri ri-money-dollar-circle-line');
-        $this->child($modules['kpi'] ?? null, $hr, 'hr-kpi', 'KPI & Bonus', 'hr.kpi.index', 'kpi.view', 6, 'ri ri-line-chart-line');
-        $this->child($modules['project'] ?? null, $hr, 'hr-operations', 'Dinas & Motor Operasional', 'hr.operations.index', 'business-trip.view', 7, 'ri ri-road-map-line');
+        // Menu visible tunggal untuk payroll dan seluruh laporan biaya pegawai.
+        $this->child($modules['payroll'] ?? null, $hr, 'employee-cost-center', 'Payroll & Biaya Karyawan', 'hr.employee-costs.index', 'employee-cost.view', 5, 'ri ri-funds-line');
+        $this->child($modules['payroll'] ?? null, $hr, 'hr-payroll', 'Payroll & Slip Gaji', 'hr.payroll.index', 'payroll.view', 6, 'ri ri-money-dollar-circle-line');
+        $this->child($modules['kpi'] ?? null, $hr, 'hr-kpi', 'KPI & Bonus', 'hr.kpi.index', 'kpi.view', 7, 'ri ri-line-chart-line');
+        $this->child($modules['project'] ?? null, $hr, 'hr-operations', 'Dinas & Motor Operasional', 'hr.operations.index', 'business-trip.view', 8, 'ri ri-road-map-line');
+        $this->child($modules['employee'] ?? null, $hr, 'bpjs-readiness', 'BPJS & Kepatuhan', 'hr.bpjs-readiness.index', 'bpjs-registration.view', 9, 'ri ri-shield-check-line');
 
         foreach ([
             ['isp-ticketing', 'Ticket & SLA', 'ri ri-customer-service-2-line'],
@@ -155,7 +163,8 @@ class MenuSeeder extends Seeder
         $this->child($modules['setting'] ?? null, $system, 'user-access', 'Akses Pengguna', 'settings.user-access.index', 'users.view', 1, 'ri ri-user-settings-line');
         $this->child($modules['setting'] ?? null, $system, 'role-permission', 'Role & Permission', 'settings.role-permission.index', 'roles.view', 2, 'ri ri-shield-keyhole-line');
         $this->child($modules['setting'] ?? null, $system, 'integration-center', 'Integrasi, Audit & Health', 'settings.integrations.index', 'integration.view', 3, 'ri ri-shield-check-line');
-        $this->child($modules['setting'] ?? null, $system, 'mobile-release-center', 'Mobile Release Center', 'settings.mobile-releases.index', 'mobile-release.view', 4, 'ri ri-smartphone-line');
+        $this->child($modules['payroll'] ?? null, $system, 'bpjs-calculation-engine', 'BPJS Calculation Engine', 'settings.bpjs-calculation.index', 'bpjs-calculation.view', 4, 'ri ri-calculator-line');
+        $this->child($modules['setting'] ?? null, $system, 'mobile-release-center', 'Mobile Release Center', 'settings.mobile-releases.index', 'mobile-release.view', 5, 'ri ri-smartphone-line');
 
         // child() di atas mengaktifkan ulang menu sistem saat upsert. Jalankan
         // penyederhanaan di akhir supaya hanya OvallHR Control yang terlihat

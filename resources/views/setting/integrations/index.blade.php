@@ -142,6 +142,16 @@
               <label class="form-check-label" for="allowOutbound">Izinkan AppOEMS mengirim event</label>
             </div>
           </div>
+          <div class="col-12">
+            <div class="border rounded p-3 bg-label-warning">
+              <input type="hidden" name="bpjs_payload_enabled" value="0">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="bpjs_payload_enabled" value="1" id="bpjsPayloadEnabled" @checked(old('bpjs_payload_enabled', data_get($connection->settings,'bpjs_payload_enabled',false)))>
+                <label class="form-check-label fw-semibold" for="bpjsPayloadEnabled">Lampirkan rincian perhitungan BPJS ke AppBill</label>
+              </div>
+              <div class="form-text">Default mati. Payroll normal (gaji, tunjangan, potongan, take home pay) tetap dikirim ke AppBill. Toggle ini hanya mengirim/menyembunyikan komponen BPJS.</div>
+            </div>
+          </div>
           <div class="col-md-6">
             <input type="hidden" name="allow_inbound" value="0">
             <div class="form-check form-switch">
