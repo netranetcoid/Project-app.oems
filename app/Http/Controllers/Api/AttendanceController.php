@@ -21,7 +21,10 @@ class AttendanceController extends Controller
     {
         $user = $request->user();
         $employee = $this->proofs->employeeFor($user);
-        $date = now();
+        // Database menyimpan instant dalam UTC, sementara tanggal presensi
+        // dan aturan shift mengikuti timezone operasional perusahaan.
+        $timezone = $this->timezoneFor($employee);
+        $date = now($timezone);
         $assignment = $this->proofs->assignment($employee, $date);
         $policy = $this->proofs->policy($employee, $assignment);
         $input = $this->validatedProof($request, $policy['selfie_required']);
@@ -39,8 +42,8 @@ class AttendanceController extends Controller
         }
 
         $photoPath = $this->storeProof($request, $employee->company_id, $employee->id, $date);
-        $clockIn = now();
-        $status = $this->statusFor($clockIn, $assignment);
+        $clockIn = now('UTC');
+        $status = $this->statusFor($clockIn, $assignment, $timezone);
         $payload = [
             'company_id' => $employee->company_id,
             'employee_id' => $employee->id,
@@ -75,7 +78,8 @@ class AttendanceController extends Controller
     {
         $user = $request->user();
         $employee = $this->proofs->employeeFor($user);
-        $date = now();
+        $timezone = $this->timezoneFor($employee);
+        $date = now($timezone);
         $assignment = $this->proofs->assignment($employee, $date);
         $policy = $this->proofs->policy($employee, $assignment);
         $input = $this->validatedProof($request, $policy['selfie_required']);
@@ -98,7 +102,7 @@ class AttendanceController extends Controller
         }
 
         $attendance->update([
-            'clock_out_at' => now(),
+            'clock_out_at' => now('UTC'),
             'out_latitude' => $input['latitude'],
             'out_longitude' => $input['longitude'],
             'geofence_distance_meters' => $distance,
@@ -119,16 +123,18 @@ class AttendanceController extends Controller
     public function today(Request $request)
     {
         $employee = $this->proofs->employeeFor($request->user());
+        $timezone = $this->timezoneFor($employee);
+        $businessNow = now($timezone);
         $attendance = Attendance::query()
             ->with('shift')
             ->where('company_id', $employee->company_id)
             ->where('employee_id', $employee->id)
-            ->whereDate('date', now()->toDateString())
+            ->whereDate('date', $businessNow->toDateString())
             ->first();
 
         return response()->json(['data' => [
-            'clock_in' => optional($attendance?->clock_in_at)->format('H:i'),
-            'clock_out' => optional($attendance?->clock_out_at)->format('H:i'),
+            'clock_in' => $this->formatTime($attendance?->clock_in_at, $timezone),
+            'clock_out' => $this->formatTime($attendance?->clock_out_at, $timezone),
             // Timestamp ISO membuat APK dapat menghitung durasi berjalan tanpa
             // perlu terus-menerus memanggil server setiap menit.
             'clock_in_at' => optional($attendance?->clock_in_at)->toIso8601String(),
@@ -148,7 +154,7 @@ class AttendanceController extends Controller
     public function policy(Request $request)
     {
         $employee = $this->proofs->employeeFor($request->user());
-        $assignment = $this->proofs->assignment($employee, now());
+        $assignment = $this->proofs->assignment($employee, now($this->timezoneFor($employee)));
         $policy = $this->proofs->policy($employee, $assignment);
         return response()->json(['data' => [
             ...$policy,
@@ -165,6 +171,7 @@ class AttendanceController extends Controller
     public function history(Request $request)
     {
         $employee = $this->proofs->employeeFor($request->user());
+        $timezone = $this->timezoneFor($employee);
         $items = Attendance::query()
             ->with('shift')
             ->where('company_id', $employee->company_id)
@@ -175,8 +182,8 @@ class AttendanceController extends Controller
             ->map(fn (Attendance $attendance): array => [
                 'id' => $attendance->id,
                 'date' => optional($attendance->date)->toDateString(),
-                'clock_in' => optional($attendance->clock_in_at)->format('H:i'),
-                'clock_out' => optional($attendance->clock_out_at)->format('H:i'),
+                'clock_in' => $this->formatTime($attendance->clock_in_at, $timezone),
+                'clock_out' => $this->formatTime($attendance->clock_out_at, $timezone),
                 'shift' => $attendance->shift?->name ?? 'Tanpa shift',
                 'status' => $attendance->status ?? 'present',
                 'work_hours' => $this->workHours($attendance),
@@ -251,16 +258,16 @@ class AttendanceController extends Controller
         return $value ? Carbon::parse($value) : null;
     }
 
-    private function statusFor(Carbon $clockIn, $assignment): string
+    private function statusFor(Carbon $clockIn, $assignment, string $timezone): string
     {
         $shift = $assignment?->shift;
         if (!$shift || !$shift->clock_in_time) {
             return 'present';
         }
 
-        $expected = Carbon::parse($clockIn->toDateString() . ' ' . $shift->clock_in_time)
+        $expected = Carbon::parse($clockIn->copy()->setTimezone($timezone)->toDateString() . ' ' . $shift->clock_in_time, $timezone)
             ->addMinutes((int) $shift->grace_in_minutes);
-        return $clockIn->greaterThan($expected) ? 'late' : 'present';
+        return $clockIn->copy()->setTimezone($timezone)->greaterThan($expected) ? 'late' : 'present';
     }
 
     private function workHours(?Attendance $attendance): string
@@ -275,6 +282,20 @@ class AttendanceController extends Controller
             return 0;
         }
 
-        return max(0, $attendance->clock_in_at->diffInMinutes($attendance->clock_out_at ?: now()));
+        return max(0, $attendance->clock_in_at->diffInMinutes($attendance->clock_out_at ?: now('UTC')));
+    }
+
+    /** Business timezone is per company, with Jakarta as safe operational fallback. */
+    private function timezoneFor($employee): string
+    {
+        $timezone = (string) ($employee->company?->timezone ?: 'Asia/Jakarta');
+
+        return in_array($timezone, timezone_identifiers_list(), true) ? $timezone : 'Asia/Jakarta';
+    }
+
+    /** Never expose raw UTC clock values to a mobile employee. */
+    private function formatTime(?Carbon $value, string $timezone): ?string
+    {
+        return $value?->copy()->setTimezone($timezone)->format('H:i');
     }
 }
