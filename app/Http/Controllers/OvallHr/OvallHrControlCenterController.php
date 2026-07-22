@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\MobileAnnouncement;
 use App\Models\Employee;
+use App\Models\EmployeeTask;
 use App\Models\EmployeeWorkLocationTrack;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -141,10 +142,15 @@ class OvallHrControlCenterController extends Controller
         $tracks = EmployeeWorkLocationTrack::query()->with(['employee:id,name,employee_no,user_id', 'employee.user:id,email'])
             ->where('company_id', $companyId)->when($employeeId, fn ($q) => $q->where('employee_id', $employeeId))
             ->whereBetween('captured_at', [$dayStart, $dayEnd])->oldest('captured_at')->get();
+        // Hanya task yang memang sedang dikerjakan yang ditampilkan pada titik
+        // berhenti. Lokasi tidak dipakai untuk menebak kegiatan pegawai.
+        $activeTasks = EmployeeTask::query()->where('company_id', $companyId)
+            ->whereIn('employee_id', $tracks->pluck('employee_id')->unique())
+            ->where('status', 'in_progress')->get()->keyBy('employee_id');
         $journeys = $this->workJourneys($tracks, $timezone);
 
         return view('ovallhr.control-center.work-tracking', compact(
-            'employees', 'tracks', 'journeys', 'employeeId', 'date', 'timezone',
+            'employees', 'tracks', 'journeys', 'activeTasks', 'employeeId', 'date', 'timezone',
         ));
     }
 
