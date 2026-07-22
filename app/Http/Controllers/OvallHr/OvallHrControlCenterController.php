@@ -139,7 +139,13 @@ class OvallHrControlCenterController extends Controller
         $dayStart = \Carbon\Carbon::parse($date, $timezone)->startOfDay()->utc();
         $dayEnd = \Carbon\Carbon::parse($date, $timezone)->endOfDay()->utc();
         $employees = Employee::forCompany($companyId)->active()->orderBy('name')->get(['id','name','employee_no']);
-        $tracks = EmployeeWorkLocationTrack::query()->with(['employee:id,name,employee_no,user_id', 'employee.user:id,email'])
+        $tracks = EmployeeWorkLocationTrack::query()->with([
+            'employee:id,name,employee_no,user_id',
+            'employee.user:id,email',
+            // Relasi ini menentukan warna marker: aktif atau sudah out.
+            'attendance:id,clock_out_at',
+            'overtimeAttendance:id,clock_out_at',
+        ])
             ->where('company_id', $companyId)->when($employeeId, fn ($q) => $q->where('employee_id', $employeeId))
             ->whereBetween('captured_at', [$dayStart, $dayEnd])->oldest('captured_at')->get();
         // Hanya task yang memang sedang dikerjakan yang ditampilkan pada titik
@@ -203,6 +209,9 @@ class OvallHrControlCenterController extends Controller
                 // tidak menerima sinyal "berhenti" hanya karena GPS diam sesaat.
                 'is_stopped' => $stopSeconds >= 600,
                 'stop_seconds' => $stopSeconds,
+                'is_active' => $first->work_mode === 'overtime'
+                    ? $last->overtimeAttendance?->clock_out_at === null
+                    : $last->attendance?->clock_out_at === null,
             ];
         })->values();
     }
