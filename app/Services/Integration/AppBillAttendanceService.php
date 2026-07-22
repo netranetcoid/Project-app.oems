@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 namespace App\Services\Integration;
 
@@ -250,14 +250,16 @@ class AppBillAttendanceService
             ],
             'ownership' => 'provider-only: AppBill membaca data, AppOEMS tetap menjadi source of truth.',
             'capabilities' => [
-                'employee' => 'read', 'shift' => 'read', 'attendance' => 'read',
+                'employee' => 'read', 'shift' => 'read-write', 'attendance' => 'read',
                 'employee_webhook' => 'outbound', 'attendance_webhook' => 'outbound',
                 'payroll_published_webhook' => 'outbound',
             ],
             'webhook_events' => ['employee.created', 'employee.updated', 'attendance.created', 'attendance.updated', 'payroll.period.published'],
             'inbound_attendance_events' => ['attendance.corrected', 'attendance.approved', 'attendance.cancelled'],
+            'inbound_shift_events' => ['shift.created', 'shift.updated', 'shift.upserted'],
             'unavailable_capabilities' => ['overtime integration', 'KPI integration', 'payroll pull'],
             'endpoints' => [
+                'shift_write' => '/api/v1/integrations/appbill/shifts',
                 'employees' => '/api/v1/integrations/appbill/employees',
                 'shifts' => '/api/v1/integrations/appbill/shifts',
                 'attendance' => '/api/v1/integrations/appbill/attendance?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD',
@@ -268,8 +270,13 @@ class AppBillAttendanceService
 
     public function shiftPayload(AttendanceShift $shift, string $timezone): array
     {
-        $breakMinutes = 0;
-        if ($shift->break_start && $shift->break_end) {
+        $settings = (array) ($shift->settings ?? []);
+        // AppBill dapat mengirim hanya durasi istirahat; simpan agar GET /shifts
+        // mengembalikan nilai yang sama tanpa mengarang jam mulai istirahat.
+        $breakMinutes = isset($settings['appbill_break_minutes'])
+            ? max(0, (int) $settings['appbill_break_minutes'])
+            : 0;
+        if (! isset($settings['appbill_break_minutes']) && $shift->break_start && $shift->break_end) {
             $breakMinutes = Carbon::parse($shift->break_start)->diffInMinutes(Carbon::parse($shift->break_end));
         }
 

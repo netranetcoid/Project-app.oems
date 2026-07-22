@@ -1,7 +1,8 @@
-<?php
+﻿<?php
 
 use App\Http\Controllers\Api\AppBillAttendanceController;
 use App\Http\Controllers\Api\AppBillAttendanceEventController;
+use App\Http\Controllers\Api\AppBillShiftController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EmployeeHomeController;
@@ -30,6 +31,7 @@ Route::prefix('integrations/appbill')
         Route::get('/attendance-contract', [AppBillAttendanceController::class, 'attendanceContract']);
         Route::get('/employees', [AppBillAttendanceController::class, 'employees']);
         Route::get('/shifts', [AppBillAttendanceController::class, 'shifts']);
+        Route::post('/shifts', [AppBillShiftController::class, 'store']);
         Route::get('/attendance', [AppBillAttendanceController::class, 'attendance']);
         Route::get('/attendance/{sourceRecordId}', [AppBillAttendanceController::class, 'showAttendance']);
         Route::post('/attendance-events', [AppBillAttendanceEventController::class, 'store']);
