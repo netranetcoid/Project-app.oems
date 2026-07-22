@@ -5,12 +5,15 @@ namespace App\Services\Integration;
 use App\Models\Company;
 use App\Models\IntegrationConnection;
 use App\Models\IntegrationOutbox;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
 
 class AppBillTransport
 {
+    public function __construct(private AppBillHmacSigner $signer) {}
+
     /**
      * Sends one already-encrypted outbox event. Retry is deliberately handled
      * by the outbox scheduler, never by an unbounded HTTP retry loop.
@@ -54,29 +57,32 @@ class AppBillTransport
                 'legal_entity_code' => $event->payload['legal_entity_code'] ?? $company->code,
             ]);
         $raw = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-        $requestId = (string) Str::uuid();
-        $url = $baseUrl . '/' . ltrim($path, '/');
+        $url = $baseUrl.'/'.ltrim($path, '/');
+        $signed = $this->signer->sign('POST', $path, $raw, $secret);
+        $requestId = $signed['X-Request-Id'];
 
-        $response = Http::acceptJson()
+        $request = Http::acceptJson()
             ->asJson()
             ->withToken($token)
             ->withHeaders(array_merge([
                 'X-Company-Code' => $company->code,
-                'X-Request-Id' => $requestId,
                 'X-Event-ID' => $event->event_id,
                 'Idempotency-Key' => $event->idempotency_key,
-            ], $this->signedHeaders('POST', $path, $raw, $requestId, $secret)))
-            ->timeout(max(1, min(60, (int) $connection->timeout_seconds)))
-            ->withBody($raw, 'application/json')
+            ], $signed))
+            ->timeout(max(1, min(60, (int) $connection->timeout_seconds)));
+        if (! $connection->verify_tls && ! app()->environment('production')) {
+            $request = $request->withoutVerifying();
+        }
+        $response = $request->withBody($raw, 'application/json')
             ->post($url);
 
         if (! $response->successful()) {
-            throw new RuntimeException("AppBill HTTP {$response->status()}: " . Str::limit((string) $response->body(), 300, ''));
+            throw $this->responseException($response, $requestId, 'AppBill');
         }
 
         $body = $response->json();
         if (is_array($body) && array_key_exists('success', $body) && $body['success'] === false) {
-            throw new RuntimeException('AppBill menolak event: ' . Str::limit((string) ($body['message'] ?? 'unknown'), 300, ''));
+            throw new RuntimeException('AppBill menolak event: '.Str::limit((string) ($body['message'] ?? 'unknown'), 300, ''));
         }
 
         return [
@@ -119,7 +125,6 @@ class AppBillTransport
             ? (string) $company->timezone
             : 'Asia/Jakarta';
         $eventId = (string) Str::uuid();
-        $requestId = (string) Str::uuid();
         $payload = [
             'schema_version' => '1.0',
             'event' => 'system.connection.test',
@@ -130,16 +135,17 @@ class AppBillTransport
         ];
         $raw = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         $path = (string) ($settings['connection_test_path'] ?? '/api/v1/integrations/appoems/connection-test');
+        $signed = $this->signer->sign('POST', $path, $raw, $secret);
+        $requestId = $signed['X-Request-Id'];
 
         $request = Http::acceptJson()
             ->asJson()
             ->withToken($token)
             ->withHeaders(array_merge([
                 'X-Company-Code' => $company->code,
-                'X-Request-Id' => $requestId,
                 'X-Event-ID' => $eventId,
                 'Idempotency-Key' => "appbill:direct-connection-test:{$eventId}",
-            ], $this->signedHeaders('POST', $path, $raw, $requestId, $secret)))
+            ], $signed))
             ->timeout(max(1, min(60, (int) $connection->timeout_seconds)));
 
         // TLS verification stays on by default; owner may only disable it for
@@ -149,15 +155,16 @@ class AppBillTransport
         }
 
         $response = $request->withBody($raw, 'application/json')
-            ->post($baseUrl . '/' . ltrim($path, '/'));
+            ->post($baseUrl.'/'.ltrim($path, '/'));
 
-        if (! $response->successful()) {
-            throw new RuntimeException("Uji AppBill HTTP {$response->status()}: " . Str::limit((string) $response->body(), 300, ''));
+        if (! in_array($response->status(), [200, 204], true)) {
+            throw $this->responseException($response, $requestId, 'Uji AppBill');
         }
 
         $body = $response->json();
-        if (is_array($body) && array_key_exists('success', $body) && $body['success'] === false) {
-            throw new RuntimeException('AppBill menolak uji koneksi: ' . Str::limit((string) ($body['message'] ?? 'unknown'), 300, ''));
+        if ($response->status() === 200 && is_array($body)
+            && (($body['success'] ?? null) !== true || data_get($body, 'data.status') !== 'CONNECTED')) {
+            throw new RuntimeException('AppBill menolak uji koneksi: '.Str::limit((string) ($body['message'] ?? 'unknown'), 300, ''));
         }
 
         return [
@@ -170,17 +177,15 @@ class AppBillTransport
         ];
     }
 
-    /** Header signature v2: body saja tidak cukup; path dan waktu ikut dikunci. */
-    private function signedHeaders(string $method, string $path, string $raw, string $requestId, string $secret): array
+    private function responseException(Response $response, string $requestId, string $context): AppBillTransportException
     {
-        $timestamp = now('UTC')->toIso8601String();
-        $nonce = (string) Str::uuid();
-        $canonical = implode("\n", [$timestamp, $nonce, $requestId, strtoupper($method), '/'.ltrim($path, '/'), $raw]);
-        return [
-            'X-Timestamp' => $timestamp,
-            'X-Nonce' => $nonce,
-            'X-Signature-Version' => '2',
-            'X-Signature' => 'sha256='.hash_hmac('sha256', $canonical, $secret),
-        ];
+        $retryAfter = trim((string) $response->header('Retry-After'));
+        $retryAfterSeconds = ctype_digit($retryAfter) ? (int) $retryAfter : null;
+        $safeMessage = (string) data_get($response->json(), 'message', 'request ditolak');
+
+        return new AppBillTransportException(
+            "{$context} HTTP {$response->status()}: ".Str::limit($safeMessage, 200, ''),
+            $response->status(), $retryAfterSeconds, $requestId,
+        );
     }
 }

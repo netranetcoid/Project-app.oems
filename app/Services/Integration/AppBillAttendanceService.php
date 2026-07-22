@@ -13,14 +13,11 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AppBillAttendanceService
 {
-    public function __construct(private AppBillIntegrationService $outbox)
-    {
-    }
+    public function __construct(private AppBillIntegrationService $outbox) {}
 
     public function queueAttendance(Attendance $attendance, string $eventType): void
     {
@@ -122,6 +119,7 @@ class AppBillAttendanceService
             ->first();
         if ($attendance && (int) $attendance->sync_version >= (int) $data['version']) {
             $inbox->update(['status' => 'processed', 'processed_at' => now()]);
+
             return ['status' => 'synced', 'sync_id' => "INBOX-{$inbox->id}", 'duplicate' => true];
         }
 
@@ -154,6 +152,7 @@ class AppBillAttendanceService
         }
 
         $inbox->update(['status' => 'processed', 'processed_at' => now(), 'last_error' => null]);
+
         return ['status' => 'synced', 'sync_id' => "INBOX-{$inbox->id}", 'attendance' => $attendance->fresh(['employee.division', 'shift'])];
     }
 
@@ -181,6 +180,7 @@ class AppBillAttendanceService
             ]);
         });
         $inbox->update(['status' => 'processed', 'processed_at' => now()]);
+
         return ['status' => 'synced', 'sync_id' => "INBOX-{$inbox->id}"];
     }
 
@@ -193,7 +193,7 @@ class AppBillAttendanceService
             'phone' => $employee->phone,
             'division' => $employee->division?->name,
             'division_type' => $employee->division?->type,
-            'employment_status' => $employee->work_status,
+            'employment_status' => $employee->employment_status,
             'updated_at' => optional($employee->updated_at)->toIso8601String(),
         ];
     }
@@ -243,11 +243,25 @@ class AppBillAttendanceService
             'attendance_statuses' => $this->attendanceStatuses(),
             'approval_statuses' => $this->approvalStatuses(),
             'record_version_rule' => 'Integer naik setiap record berubah. Penerima wajib memakai source_record_id + version untuk idempotensi.',
-            'webhook_events' => ['attendance.created', 'attendance.updated'],
+            'security' => [
+                'hmac_version' => 2,
+                'signature_prefix' => 'sha256=',
+                'canonical_string' => 'timestamp\\nnonce\\nrequest_id\\nHTTP_METHOD\\nPATH_ONLY\\nRAW_BODY',
+            ],
+            'ownership' => 'provider-only: AppBill membaca data, AppOEMS tetap menjadi source of truth.',
+            'capabilities' => [
+                'employee' => 'read', 'shift' => 'read', 'attendance' => 'read',
+                'employee_webhook' => 'outbound', 'attendance_webhook' => 'outbound',
+                'payroll_published_webhook' => 'outbound',
+            ],
+            'webhook_events' => ['employee.created', 'employee.updated', 'attendance.created', 'attendance.updated', 'payroll.period.published'],
+            'inbound_attendance_events' => ['attendance.corrected', 'attendance.approved', 'attendance.cancelled'],
+            'unavailable_capabilities' => ['overtime integration', 'KPI integration', 'payroll pull'],
             'endpoints' => [
                 'employees' => '/api/v1/integrations/appbill/employees',
                 'shifts' => '/api/v1/integrations/appbill/shifts',
                 'attendance' => '/api/v1/integrations/appbill/attendance?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD',
+                'attendance_record' => '/api/v1/integrations/appbill/attendance/{source_record_id}',
             ],
         ];
     }
@@ -258,6 +272,7 @@ class AppBillAttendanceService
         if ($shift->break_start && $shift->break_end) {
             $breakMinutes = Carbon::parse($shift->break_start)->diffInMinutes(Carbon::parse($shift->break_end));
         }
+
         return [
             'shift_code' => $shift->code,
             'shift_name' => $shift->name,
@@ -278,16 +293,17 @@ class AppBillAttendanceService
             'attendance_date' => ['required', 'date'],
             'check_in' => ['nullable', 'date'],
             'check_out' => ['nullable', 'date', 'after_or_equal:check_in'],
-            'status' => ['required', 'in:' . implode(',', $allowedStatuses)],
+            'status' => ['required', 'in:'.implode(',', $allowedStatuses)],
             'late_minutes' => ['nullable', 'integer', 'min:0'],
             'work_minutes' => ['nullable', 'integer', 'min:0'],
             'shift_code' => ['nullable', 'string', 'max:50'],
             'timezone' => ['nullable', 'timezone'],
-            'approval_status' => ['required', 'in:' . implode(',', $approvalStatuses)],
+            'approval_status' => ['required', 'in:'.implode(',', $approvalStatuses)],
             'version' => ['required', 'integer', 'min:1'],
             'updated_at' => ['required', 'date'],
             'change_reason' => ['nullable', 'string', 'max:2000'],
         ]);
+
         return $validator->validate();
     }
 
@@ -306,6 +322,7 @@ class AppBillAttendanceService
             if (! hash_equals((string) $existing->payload_hash, $hash)) {
                 abort(response()->json(['success' => false, 'message' => 'Event ID digunakan untuk payload berbeda.'], 409));
             }
+
             return $existing;
         }
 
@@ -338,8 +355,9 @@ class AppBillAttendanceService
         if (! $attendance->clock_in_at || ! $attendance->shift?->clock_in_time) {
             return 0;
         }
-        $expected = Carbon::parse($attendance->date->toDateString() . ' ' . $attendance->shift->clock_in_time)
+        $expected = Carbon::parse($attendance->date->toDateString().' '.$attendance->shift->clock_in_time)
             ->addMinutes((int) $attendance->shift->grace_in_minutes);
+
         return $attendance->clock_in_at->greaterThan($expected)
             ? $expected->diffInMinutes($attendance->clock_in_at)
             : 0;

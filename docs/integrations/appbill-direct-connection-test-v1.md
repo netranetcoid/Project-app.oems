@@ -1,65 +1,40 @@
-# Uji Koneksi Langsung AppOEMS -> AppBill v1.0
+# Uji Koneksi Langsung AppOEMS → AppBill v1.0
 
-Tujuan endpoint ini hanya memverifikasi jaringan HTTPS, Bearer token, HMAC, dan
-mapping company sebelum cutover. Endpoint **tidak boleh** membuat jurnal,
-payroll, absensi, invoice, atau perubahan master data.
+Uji ini sinkron, tidak memakai outbox, dan tidak mengirim employee, attendance,
+payroll, selfie, GPS, atau data HR lain. Uji tidak mengaktifkan cutover.
 
-## Endpoint AppBill
+## Konfigurasi
+
+- Base URL disimpan terpisah, tanpa akhiran `/api`, misalnya `https://appbill-domain.test`.
+- Company code default: `OEMS`.
+- Path: `/api/v1/integrations/appoems/connection-test`.
+- Production wajib HTTPS dan TLS verification aktif.
+
+## Request
 
 `POST /api/v1/integrations/appoems/connection-test`
 
-AppOEMS menyediakan path ini sebagai nilai default yang dapat diedit owner di
-System > Integrasi, Audit & Health. Endpoint hanya dapat dipanggil dari tombol
-**Uji Koneksi Live Sekarang**, secara sinkron; tidak memakai Laravel queue,
-scheduler, ataupun tabel outbox.
-
-## Header wajib
-
-- `Authorization: Bearer <api_token>`
-- `X-Company-Code: OEMS`
-- `X-Request-Id: <uuid>`
-- `X-Event-ID: <uuid>`
-- `Idempotency-Key: appbill:direct-connection-test:<uuid>`
-- `X-Signature: sha256=<HMAC-SHA256 raw request body>`
-
-`OEMS` adalah company code teknis PT Ovall Solusindo Mandiri saat ini. Jangan
-menggantinya ke `OSM` tanpa cutover terkoordinasi pada OEMS, APK, dan AppBill.
-
-## Payload
-
 ```json
-{
-  "schema_version": "1.0",
-  "event": "system.connection.test",
-  "event_id": "uuid",
-  "company_code": "OEMS",
-  "occurred_at": "2026-07-18T10:00:00+07:00",
-  "source": "appoems"
-}
+{"schema_version":"1.0","event":"system.connection.test","event_id":"uuid","company_code":"OEMS","occurred_at":"ISO-8601","source":"appoems"}
 ```
 
-## Respons AppBill yang diharapkan
+Header wajib: `Authorization: Bearer …`, `X-Company-Code: OEMS`, UUID v4
+`X-Request-Id`, timestamp UTC `X-Timestamp`, nonce unik `X-Nonce`,
+`X-Signature-Version: 2`, `X-Signature: sha256=<lowercase hex>`,
+`X-Event-ID: <event_id>`, dan
+`Idempotency-Key: appbill:direct-connection-test:<event_id>`.
 
-HTTP `200` atau `204`. Untuk JSON, format yang direkomendasikan:
+Canonical HMAC-SHA256 harus persis:
 
-```json
-{
-  "success": true,
-  "data": { "status": "CONNECTED" }
-}
+```text
+timestamp + "\n" + nonce + "\n" + request_id + "\n" +
+HTTP_METHOD_UPPERCASE + "\n" + PATH_ONLY + "\n" + RAW_BODY
 ```
 
-Jika token/HMAC tidak valid, AppBill wajib memberi `401` atau `403` dan tidak
-boleh memproses payload sebagai transaksi keuangan.
+Query string tidak masuk canonical path. Raw body tidak boleh di-encode ulang
+setelah signature dibuat. Sukses adalah HTTP 204, atau HTTP 200 dengan
+`success=true` dan `data.status=CONNECTED`.
 
-## Kebijakan kredensial OEMS
-
-Token dan HMAC dibuat satu kali oleh akun bertanda **Developer** melalui
-AppOEMS. Setelah pasangan lengkap dibuat, AppOEMS mengunci keduanya: form tidak
-dapat mengubah nilai dan tombol rotasi tidak lagi tersedia. Nilai tetap
-tersimpan dengan encrypted cast di database dan hanya dapat dibuka oleh akun
-Developer setelah memasukkan ulang password Developer. Owner dapat menyetujui
-live/cutover, tetapi tidak dapat melihat rahasia. Bila nilai benar-benar hilang
-atau diduga bocor, perubahan hanya dilakukan melalui prosedur darurat yang
-diaudit, serta harus diperbarui serentak di AppBill sebelum koneksi live
-diaktifkan.
+Monitoring hanya menyimpan waktu tes/sukses/gagal, health status, HTTP status,
+request ID, durasi, dan kategori error aman. Token, HMAC secret, Authorization,
+dan raw response sensitif tidak disimpan.

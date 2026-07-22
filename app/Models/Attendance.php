@@ -22,6 +22,7 @@ class Attendance extends Model
         'geofence_validated' => 'boolean',
         'sync_updated_at' => 'datetime',
         'is_cancelled' => 'boolean',
+        'external_changed_at' => 'datetime',
     ];
 
     // Ini kunci biar Laravel mau nyimpen data ke kolom-kolom ini
@@ -54,6 +55,12 @@ class Attendance extends Model
         'sync_updated_at',
         'change_reason',
         'is_cancelled',
+        'source_system',
+        'external_event_id',
+        'external_revision',
+        'external_payload_hash',
+        'external_changed_by',
+        'external_changed_at',
     ];
 
     protected static function booted(): void
@@ -65,7 +72,7 @@ class Attendance extends Model
                 return;
             }
 
-            $attendance->source_record_id ??= 'ATT-' . Str::upper((string) Str::uuid());
+            $attendance->source_record_id ??= 'ATT-'.Str::upper((string) Str::uuid());
             $attendance->sync_version ??= 1;
             $attendance->approval_status ??= 'approved';
             $attendance->sync_status ??= 'pending';

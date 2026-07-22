@@ -1,18 +1,19 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\AttendanceController;
-use App\Http\Controllers\Api\EmployeeHomeController;
-use App\Http\Controllers\Api\EmployeeRequestController;
-use App\Http\Controllers\Api\PayrollController;
-use App\Http\Controllers\Api\MobileReleaseController;
 use App\Http\Controllers\Api\AppBillAttendanceController;
-use App\Http\Controllers\Api\EmployeeScheduleController;
+use App\Http\Controllers\Api\AppBillAttendanceEventController;
+use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\EmployeeHomeController;
 use App\Http\Controllers\Api\EmployeeKpiController;
+use App\Http\Controllers\Api\EmployeeRequestController;
+use App\Http\Controllers\Api\EmployeeScheduleController;
 use App\Http\Controllers\Api\EmployeeTaskController;
-use App\Http\Controllers\Api\OvertimeAttendanceController;
 use App\Http\Controllers\Api\EmployeeWorkTrackingController;
+use App\Http\Controllers\Api\MobileReleaseController;
+use App\Http\Controllers\Api\OvertimeAttendanceController;
+use App\Http\Controllers\Api\PayrollController;
+use Illuminate\Support\Facades\Route;
 
 // Route untuk akses publik (tidak perlu login)
 // Endpoint versi; alias /login dipertahankan untuk klien lama.
@@ -31,6 +32,7 @@ Route::prefix('integrations/appbill')
         Route::get('/shifts', [AppBillAttendanceController::class, 'shifts']);
         Route::get('/attendance', [AppBillAttendanceController::class, 'attendance']);
         Route::get('/attendance/{sourceRecordId}', [AppBillAttendanceController::class, 'showAttendance']);
+        Route::post('/attendance-events', [AppBillAttendanceEventController::class, 'store']);
         Route::post('/attendance', [AppBillAttendanceController::class, 'storeAttendance']);
         Route::put('/attendance/{sourceRecordId}', [AppBillAttendanceController::class, 'updateAttendance']);
         Route::delete('/attendance/{sourceRecordId}', [AppBillAttendanceController::class, 'destroyAttendance']);

@@ -13,9 +13,7 @@ use Throwable;
 
 class AppBillIntegrationService
 {
-    public function __construct(private AppBillTransport $transport)
-    {
-    }
+    public function __construct(private AppBillTransport $transport) {}
 
     public function connection(int $companyId): IntegrationConnection
     {
@@ -31,7 +29,15 @@ class AppBillIntegrationService
                 'health_status' => 'ready',
                 // Payroll biasa tetap sinkron. Detail BPJS bersifat opsional
                 // sampai mapping akun BPJS di AppBill disetujui.
-                'settings' => ['dummy_only' => true, 'live_activation_confirmed' => false, 'bpjs_payload_enabled' => false],
+                'settings' => [
+                    'dummy_only' => true,
+                    'live_activation_confirmed' => false,
+                    'bpjs_payload_enabled' => false,
+                    'company_code' => 'OEMS',
+                    'connection_test_path' => '/api/v1/integrations/appoems/connection-test',
+                    'attendance_webhook_path' => '/api/integrations/attendance/webhook',
+                    'payroll_endpoint_path' => '/api/v1/integrations/appoems/payroll-periods',
+                ],
             ]
         );
     }
@@ -151,6 +157,7 @@ class AppBillIntegrationService
     public function queueTestEvent(int $companyId, int $userId): IntegrationOutbox
     {
         $nonce = (string) Str::uuid();
+
         return $this->queueEvent(
             $companyId,
             'system.connection.test',
@@ -197,6 +204,7 @@ class AppBillIntegrationService
                 'retry_after_seconds' => null,
                 'last_error_code' => null,
             ]);
+
             return $locked->fresh('connection');
         });
 
@@ -299,6 +307,7 @@ class AppBillIntegrationService
             'retry_after_seconds' => null,
             'last_error_code' => null,
         ]);
+
         return $event->fresh();
     }
 
@@ -333,12 +342,25 @@ class AppBillIntegrationService
     private function classifyFailure(Throwable $exception): array
     {
         $message = $exception->getMessage();
-        preg_match('/HTTP\s+(\d{3})/', $message, $match);
-        $status = isset($match[1]) ? (int) $match[1] : null;
-        if ($status === 429) return ['category' => 'rate_limited', 'code' => 'HTTP_429', 'permanent' => false, 'retry_after' => 300];
-        if ($status !== null && ($status === 408 || $status === 425 || $status >= 500)) return ['category' => 'server_or_timeout', 'code' => 'HTTP_'.$status, 'permanent' => false, 'retry_after' => null];
-        if ($status !== null && $status >= 400) return ['category' => 'configuration_or_validation', 'code' => 'HTTP_'.$status, 'permanent' => true, 'retry_after' => null];
-        if (str_contains(strtolower($message), 'konfigurasi')) return ['category' => 'configuration', 'code' => 'CONFIG', 'permanent' => true, 'retry_after' => null];
+        $status = $exception instanceof AppBillTransportException ? $exception->httpStatus : null;
+        if ($status === null) {
+            preg_match('/HTTP\s+(\d{3})/', $message, $match);
+            $status = isset($match[1]) ? (int) $match[1] : null;
+        }
+        $retryAfter = $exception instanceof AppBillTransportException ? $exception->retryAfterSeconds : null;
+        if ($status === 429) {
+            return ['category' => 'rate_limited', 'code' => 'HTTP_429', 'permanent' => false, 'retry_after' => $retryAfter ?? 300];
+        }
+        if (in_array($status, [408, 425, 500, 502, 503, 504], true)) {
+            return ['category' => 'server_or_timeout', 'code' => 'HTTP_'.$status, 'permanent' => false, 'retry_after' => $retryAfter];
+        }
+        if ($status !== null && $status >= 400) {
+            return ['category' => 'configuration_or_validation', 'code' => 'HTTP_'.$status, 'permanent' => true, 'retry_after' => null];
+        }
+        if (str_contains(strtolower($message), 'konfigurasi')) {
+            return ['category' => 'configuration', 'code' => 'CONFIG', 'permanent' => true, 'retry_after' => null];
+        }
+
         return ['category' => 'network_or_unknown', 'code' => 'TRANSPORT', 'permanent' => false, 'retry_after' => null];
     }
 

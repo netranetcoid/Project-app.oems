@@ -4,17 +4,18 @@ namespace App\Http\Controllers\Setting;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Company;
 use App\Models\IntegrationConnection;
 use App\Models\IntegrationOutbox;
 use App\Models\SystemHealthSnapshot;
-use App\Models\Company;
 use App\Services\Integration\AppBillIntegrationService;
+use App\Services\Integration\AppBillTransportException;
 use App\Services\Observability\SystemHealthService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\View\View;
 use Throwable;
 
 class IntegrationCenterController extends Controller
@@ -185,21 +186,40 @@ class IntegrationCenterController extends Controller
         $this->ensureCompany($connection);
         abort_unless($request->user()->is_owner || $request->user()->is_super_admin, 403);
 
+        $startedAt = microtime(true);
+        $settings = $connection->settings ?? [];
+        $settings['monitoring']['last_tested_at'] = now('UTC')->toIso8601String();
         try {
             $result = $this->appBill->testLiveConnection($connection);
+            $settings['monitoring'] = array_merge($settings['monitoring'] ?? [], [
+                'last_success_at' => now('UTC')->toIso8601String(),
+                'http_status' => $result['status'],
+                'request_id' => data_get($result, 'summary.request_id'),
+                'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+                'error_category' => null,
+            ]);
             $connection->update([
                 'health_status' => 'ready',
                 'last_success_at' => now(),
+                'settings' => $settings,
             ]);
 
             return back()->with('success', "Koneksi live AppBill terverifikasi langsung (HTTP {$result['status']}). Tidak ada data absensi atau payroll yang dikirim.");
         } catch (Throwable $exception) {
+            $settings['monitoring'] = array_merge($settings['monitoring'] ?? [], [
+                'last_failure_at' => now('UTC')->toIso8601String(),
+                'http_status' => $exception instanceof AppBillTransportException ? $exception->httpStatus : null,
+                'request_id' => $exception instanceof AppBillTransportException ? $exception->requestId : null,
+                'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+                'error_category' => $exception instanceof AppBillTransportException ? 'http' : 'transport',
+            ]);
             $connection->update([
                 'health_status' => 'warning',
                 'last_failure_at' => now(),
+                'settings' => $settings,
             ]);
 
-            return back()->with('error', 'Koneksi live AppBill gagal: ' . Str::limit($exception->getMessage(), 300, ''));
+            return back()->with('error', 'Koneksi live AppBill gagal: '.Str::limit($exception->getMessage(), 300, ''));
         }
     }
 
@@ -270,6 +290,7 @@ class IntegrationCenterController extends Controller
     public function dispatch(): RedirectResponse
     {
         $result = $this->appBill->dispatchPending((int) session('company_id'));
+
         return back()->with('success', "{$result['processed']} event diproses; {$result['sent']} berhasil.");
     }
 
@@ -277,12 +298,14 @@ class IntegrationCenterController extends Controller
     {
         abort_if((int) $event->company_id !== (int) session('company_id'), 403);
         $this->appBill->retry($event);
+
         return back()->with('success', 'Event dimasukkan kembali ke antrean.');
     }
 
     public function refreshHealth(): RedirectResponse
     {
         $this->health->check((int) session('company_id'));
+
         return back()->with('success', 'Pemeriksaan kesehatan sistem selesai.');
     }
 

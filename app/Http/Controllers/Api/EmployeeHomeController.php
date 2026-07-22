@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\MobileAnnouncement;
+use App\Models\OvertimeAttendance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,6 +22,16 @@ class EmployeeHomeController extends Controller
         // Selama belum checkout, jam kerja harus tetap bergerak pada dashboard.
         $workMinutes = $attendance?->clock_in_at
             ? max(0, $attendance->clock_in_at->diffInMinutes($attendance->clock_out_at ?: now())) : 0;
+        // Dashboard memuat lembur hari ini dalam respons yang sama agar APK
+        // dapat menghitung total real-time tanpa request tambahan.
+        $timezone = $employee->company?->timezone ?: 'Asia/Jakarta';
+        $overtime = OvertimeAttendance::query()
+            ->where('company_id', $employee->company_id)
+            ->where('employee_id', $employee->id)
+            ->whereDate('date', now($timezone)->toDateString())
+            ->first();
+        $overtimeMinutes = $overtime?->clock_in_at
+            ? max(0, $overtime->clock_in_at->diffInMinutes($overtime->clock_out_at ?: now())) : 0;
         $companySettings = is_array($employee->company?->settings) ? $employee->company->settings : [];
         $birthdaySettings = is_array($companySettings['mobile_birthday'] ?? null) ? $companySettings['mobile_birthday'] : [];
         // Ucapan dibuat sebagai perayaan perusahaan: seluruh pegawai aktif
@@ -54,6 +65,15 @@ class EmployeeHomeController extends Controller
                 'shift' => $attendance?->shift?->name ?? 'Belum ada jadwal',
                 'work_hours' => sprintf('%02d:%02d', intdiv($workMinutes, 60), $workMinutes % 60),
                 'work_minutes' => $workMinutes,
+            ],
+            'overtime' => [
+                'clock_in' => $overtime?->clock_in_at?->format('H:i'),
+                'clock_out' => $overtime?->clock_out_at?->format('H:i'),
+                'clock_in_at' => $overtime?->clock_in_at?->toIso8601String(),
+                'clock_out_at' => $overtime?->clock_out_at?->toIso8601String(),
+                'work_minutes' => $overtimeMinutes,
+                'work_hours' => sprintf('%02d:%02d', intdiv($overtimeMinutes, 60), $overtimeMinutes % 60),
+                'max_minutes' => 180,
             ],
             // Saldo cuti siap dihubungkan ke ledger cuti pada iterasi kebijakan.
             'leave_balance' => 0,
