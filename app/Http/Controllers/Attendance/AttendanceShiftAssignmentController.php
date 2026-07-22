@@ -40,8 +40,9 @@ class AttendanceShiftAssignmentController extends Controller
         // mencegah error SQL saat membuka form penugasan jadwal shift.
         $employees = Employee::where('company_id', $companyId)
             ->active()
-            ->orderBy('full_name')
-            ->get();
+            ->get()
+            ->sortBy('full_name', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
 
         $branches = Branch::where('company_id',$companyId)
             ->orderBy('name')
