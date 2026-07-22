@@ -5,8 +5,11 @@ namespace App\Http\Controllers\OvallHr;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\MobileAnnouncement;
+use App\Models\Employee;
+use App\Models\EmployeeWorkLocationTrack;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
@@ -122,6 +125,56 @@ class OvallHrControlCenterController extends Controller
             'company' => $company,
             'branding' => $this->branding($company),
         ]);
+    }
+
+    /** Peta HR: tidak pernah diekspos ke API pegawai maupun APK pegawai. */
+    public function workTracking(Request $request): View
+    {
+        $companyId = (int) session('company_id');
+        $employeeId = $request->integer('employee_id');
+        $date = $request->date('date')?->toDateString() ?: now()->toDateString();
+        $company = Company::query()->findOrFail($companyId);
+        $timezone = $company->timezone ?: 'Asia/Jakarta';
+        $dayStart = \Carbon\Carbon::parse($date, $timezone)->startOfDay()->utc();
+        $dayEnd = \Carbon\Carbon::parse($date, $timezone)->endOfDay()->utc();
+        $employees = Employee::forCompany($companyId)->active()->orderBy('name')->get(['id','name','employee_no']);
+        $tracks = EmployeeWorkLocationTrack::query()->with(['employee:id,name,employee_no,user_id', 'employee.user:id,email'])
+            ->where('company_id', $companyId)->when($employeeId, fn ($q) => $q->where('employee_id', $employeeId))
+            ->whereBetween('captured_at', [$dayStart, $dayEnd])->oldest('captured_at')->get();
+        $journeys = $this->workJourneys($tracks, $timezone);
+
+        return view('ovallhr.control-center.work-tracking', compact(
+            'employees', 'tracks', 'journeys', 'employeeId', 'date', 'timezone',
+        ));
+    }
+
+    /** Ringkasan perjalanan harian untuk review HR, bukan tagihan bensin otomatis. */
+    private function workJourneys(Collection $tracks, string $timezone): Collection
+    {
+        return $tracks->groupBy(function (EmployeeWorkLocationTrack $track): string {
+            return implode(':', [$track->employee_id, $track->work_mode, $track->attendance_id ?: 0, $track->overtime_attendance_id ?: 0]);
+        })->map(function (Collection $session) use ($timezone): array {
+            $first = $session->first();
+            $last = $session->last();
+            $startedAt = $first->captured_at->copy()->setTimezone($timezone);
+            $endedAt = $last->captured_at->copy()->setTimezone($timezone);
+            $status = $session->contains('integrity_status', 'blocked')
+                ? 'blocked'
+                : ($session->contains('integrity_status', 'review') ? 'review' : 'accepted');
+
+            return [
+                'employee_name' => $first->employee?->name ?: 'Pegawai',
+                'employee_code' => $first->employee?->employee_no ?: '-',
+                'account_email' => $first->account_email ?: $first->employee?->user?->email,
+                'mode' => $first->work_mode,
+                'started_at' => $startedAt,
+                'ended_at' => $endedAt,
+                'duration_seconds' => max(0, $first->captured_at->diffInSeconds($last->captured_at)),
+                'distance_km' => round($session->sum('distance_from_previous_meters') / 1000, 2),
+                'point_count' => $session->count(),
+                'integrity_status' => $status,
+            ];
+        })->values();
     }
 
     /** Aturan ucapan ulang tahun; tidak membuat bonus payroll otomatis. */

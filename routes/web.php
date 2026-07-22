@@ -121,6 +121,9 @@ Route::middleware([
   Route::get('/ovallhr-control/preview', [\App\Http\Controllers\OvallHr\OvallHrControlCenterController::class, 'preview'])
     ->middleware('permission:mobile-release.view')
     ->name('ovallhr.control-center.preview');
+  Route::get('/ovallhr-control/work-tracking', [\App\Http\Controllers\OvallHr\OvallHrControlCenterController::class, 'workTracking'])
+    ->middleware('permission:attendance.view')
+    ->name('ovallhr.control-center.work-tracking');
   Route::put('/ovallhr-control/birthday', [\App\Http\Controllers\OvallHr\OvallHrControlCenterController::class, 'updateBirthdaySettings'])
     ->middleware('permission:mobile-release.manage')
     ->name('ovallhr.control-center.birthday.update');

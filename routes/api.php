@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\EmployeeScheduleController;
 use App\Http\Controllers\Api\EmployeeKpiController;
 use App\Http\Controllers\Api\EmployeeTaskController;
 use App\Http\Controllers\Api\OvertimeAttendanceController;
+use App\Http\Controllers\Api\EmployeeWorkTrackingController;
 
 // Route untuk akses publik (tidak perlu login)
 // Endpoint versi; alias /login dipertahankan untuk klien lama.
@@ -58,6 +59,8 @@ Route::middleware(['auth:sanctum', 'mobile.password.changed'])->group(function (
     Route::get('/overtime/history', [OvertimeAttendanceController::class, 'history']);
     Route::get('/overtime/history/{overtime}/proof/{direction}', [OvertimeAttendanceController::class, 'proof'])
         ->whereIn('direction', ['in', 'out']);
+    Route::post('/work-tracking/points', [EmployeeWorkTrackingController::class, 'store'])->middleware('throttle:60,1');
+    Route::get('/work-tracking/history', [EmployeeWorkTrackingController::class, 'history']);
     Route::get('/employee/me/home', EmployeeHomeController::class);
     Route::get('/employee/me/schedule', EmployeeScheduleController::class);
     Route::get('/employee/me/kpi', EmployeeKpiController::class);
