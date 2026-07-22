@@ -156,6 +156,22 @@ class OvallHrControlCenterController extends Controller
         })->map(function (Collection $session) use ($timezone): array {
             $first = $session->first();
             $last = $session->last();
+            // Titik berurutan yang masih berada dalam radius 35 m dari titik
+            // terakhir dianggap sebagai satu perhentian. Ini bukan pelacak
+            // 24 jam: hanya berlaku pada sesi kerja/lembur yang aktif.
+            $stopStart = $last;
+            foreach ($session->reverse() as $point) {
+                if ($this->distanceMeters(
+                    (float) $last->latitude,
+                    (float) $last->longitude,
+                    (float) $point->latitude,
+                    (float) $point->longitude,
+                ) > 35) {
+                    break;
+                }
+                $stopStart = $point;
+            }
+            $stopSeconds = max(0, $stopStart->captured_at->diffInSeconds($last->captured_at));
             $startedAt = $first->captured_at->copy()->setTimezone($timezone);
             $endedAt = $last->captured_at->copy()->setTimezone($timezone);
             $status = $session->contains('integrity_status', 'blocked')
@@ -166,6 +182,7 @@ class OvallHrControlCenterController extends Controller
                 'employee_name' => $first->employee?->name ?: 'Pegawai',
                 'employee_code' => $first->employee?->employee_no ?: '-',
                 'account_email' => $first->account_email ?: $first->employee?->user?->email,
+                'session_key' => implode(':', [$first->employee_id, $first->work_mode, $first->attendance_id ?: 0, $first->overtime_attendance_id ?: 0]),
                 'mode' => $first->work_mode,
                 'started_at' => $startedAt,
                 'ended_at' => $endedAt,
@@ -173,8 +190,25 @@ class OvallHrControlCenterController extends Controller
                 'distance_km' => round($session->sum('distance_from_previous_meters') / 1000, 2),
                 'point_count' => $session->count(),
                 'integrity_status' => $status,
+                'last_latitude' => (float) $last->latitude,
+                'last_longitude' => (float) $last->longitude,
+                'last_seen_at' => $endedAt,
+                'is_stopped' => $stopSeconds >= 180,
+                'stop_seconds' => $stopSeconds,
             ];
         })->values();
+    }
+
+    /** Jarak antar titik untuk klasifikasi berhenti; bukan rumus penggajian. */
+    private function distanceMeters(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earthRadius = 6_371_000;
+        $deltaLatitude = deg2rad($lat2 - $lat1);
+        $deltaLongitude = deg2rad($lon2 - $lon1);
+        $a = sin($deltaLatitude / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($deltaLongitude / 2) ** 2;
+
+        return $earthRadius * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 
     /** Aturan ucapan ulang tahun; tidak membuat bonus payroll otomatis. */

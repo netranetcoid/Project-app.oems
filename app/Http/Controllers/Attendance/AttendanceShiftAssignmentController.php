@@ -36,8 +36,10 @@ class AttendanceShiftAssignmentController extends Controller
     {
         $companyId = session('company_id');
 
-        $employees = Employee::where('company_id',$companyId)
-            ->where('status','active')
+        // Employee memakai work_status, bukan kolom status. Menggunakan scope
+        // mencegah error SQL saat membuka form penugasan jadwal shift.
+        $employees = Employee::where('company_id', $companyId)
+            ->active()
             ->orderBy('full_name')
             ->get();
 

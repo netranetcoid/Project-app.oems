@@ -8,13 +8,11 @@
   $totalKm = round($tracks->sum('distance_from_previous_meters') / 1000, 2);
   $reviewCount = $tracks->where('integrity_status', 'review')->count();
   $blockedCount = $tracks->where('integrity_status', 'blocked')->count();
-  // Dibentuk di PHP agar directive Blade @json tidak perlu mem-parsing
-  // arrow-function dan array bersarang di dalam tag script.
+  // Disusun terlebih dahulu agar Blade tidak perlu mem-parsing closure di @json.
   $mapPoints = $tracks->map(function ($track) use ($timezone) {
     return [
       'lat' => (float) $track->latitude,
       'lng' => (float) $track->longitude,
-      'employeeId' => $track->employee_id,
       'session' => implode(':', [$track->employee_id, $track->work_mode, $track->attendance_id ?: 0, $track->overtime_attendance_id ?: 0]),
       'name' => $track->employee?->name,
       'email' => $track->account_email ?: $track->employee?->user?->email,
@@ -27,39 +25,27 @@
 @endphp
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  .tracking-detail { min-height: 560px; background: #f8fafc; border-radius: .5rem; padding: 1.25rem; }
+  .tracking-motor { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: #0ea5e9; border: 3px solid #fff; box-shadow: 0 5px 14px rgba(15, 23, 42, .35); font-size: 20px; }
+  .tracking-pulse { width: 16px; height: 16px; border-radius: 50%; background: #16a34a; border: 3px solid #fff; box-shadow: 0 0 0 7px rgba(22, 163, 74, .22); }
+  .tracking-stat { border-left: 3px solid #0ea5e9; padding-left: .75rem; margin-top: 1rem; }
+  .journey-row { cursor: pointer; }
+</style>
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
   <div>
     <h4 class="mb-1">Tracking & Perjalanan Kerja</h4>
-    <p class="text-muted mb-0">Peta, rute, km, dan status integritas. Hanya HR/Owner berizin.</p>
+    <p class="text-muted mb-0">Rute, posisi terakhir, lama berhenti, dan status integritas. Hanya HR/Owner berizin.</p>
   </div>
   <a href="{{ route('ovallhr.control-center.index') }}" class="btn btn-label-secondary">Kembali</a>
 </div>
 
-<div class="card mb-4">
-  <div class="card-body">
-    <form class="row g-3">
-      <div class="col-md-5">
-        <label class="form-label">Pegawai</label>
-        <select name="employee_id" class="form-select">
-          <option value="">Semua pegawai</option>
-          @foreach($employees as $employee)
-            <option value="{{ $employee->id }}" @selected($employeeId === $employee->id)>
-              {{ $employee->employee_no }} — {{ $employee->name }}
-            </option>
-          @endforeach
-        </select>
-      </div>
-      <div class="col-md-4">
-        <label class="form-label">Tanggal perjalanan</label>
-        <input class="form-control" type="date" name="date" value="{{ $date }}">
-      </div>
-      <div class="col-md-3 d-flex align-items-end">
-        <button class="btn btn-primary w-100">Tampilkan</button>
-      </div>
-    </form>
-  </div>
-</div>
+<div class="card mb-4"><div class="card-body"><form class="row g-3">
+  <div class="col-md-5"><label class="form-label">Pegawai</label><select name="employee_id" class="form-select"><option value="">Semua pegawai</option>@foreach($employees as $employee)<option value="{{ $employee->id }}" @selected($employeeId === $employee->id)>{{ $employee->employee_no }} - {{ $employee->name }}</option>@endforeach</select></div>
+  <div class="col-md-4"><label class="form-label">Tanggal perjalanan</label><input class="form-control" type="date" name="date" value="{{ $date }}"></div>
+  <div class="col-md-3 d-flex align-items-end"><button class="btn btn-primary w-100">Tampilkan</button></div>
+</form></div></div>
 
 <div class="row g-4 mb-4">
   <div class="col-sm-6 col-lg-3"><div class="card h-100"><div class="card-body"><span class="text-muted">Jarak valid</span><h3 class="mb-0 mt-1">{{ number_format($totalKm, 2, ',', '.') }} km</h3></div></div></div>
@@ -69,79 +55,46 @@
 </div>
 
 <div class="card mb-4">
-  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-    <div>
-      <h5 class="mb-0">Rute perjalanan</h5>
-      <small class="text-muted">Garis biru = titik GPS valid · kuning = perlu review · merah = fake GPS terdeteksi</small>
-    </div>
-    <span class="badge bg-label-primary">{{ $date }}</span>
-  </div>
-  <div class="card-body"><div id="workTrackingMap" style="height:560px" class="rounded"></div></div>
+  <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2"><div><h5 class="mb-0">Rute perjalanan</h5><small class="text-muted">Biru = rute valid, kuning = perlu review, merah = fake GPS. Motor menunjukkan rute terakhir yang dapat diputar ulang.</small></div><span class="badge bg-label-primary">{{ $date }}</span></div>
+  <div class="card-body"><div class="row g-3"><div class="col-lg-8"><div id="workTrackingMap" style="height:560px" class="rounded"></div></div><div class="col-lg-4"><div id="routeDetail" class="tracking-detail"><h5 class="mb-2">Detail perjalanan</h5><p class="text-muted mb-0">Klik marker, motor, garis rute, atau baris pegawai untuk melihat titik terakhir dan lama berhenti.</p></div></div></div></div>
 </div>
 
-<div class="card">
-  <div class="card-header"><h5 class="mb-0">Daftar perjalanan</h5></div>
-  <div class="table-responsive text-nowrap">
-    <table class="table table-hover align-middle">
-      <thead><tr><th>Pegawai / akun</th><th>Jenis</th><th>Mulai — selesai</th><th>Durasi</th><th>Jarak valid</th><th>Integritas</th></tr></thead>
-      <tbody>
-        @forelse($journeys as $journey)
-          @php
-            $duration = $journey['duration_seconds'];
-            $durationLabel = sprintf('%02d:%02d:%02d', intdiv($duration, 3600), intdiv($duration % 3600, 60), $duration % 60);
-            $badge = match($journey['integrity_status']) { 'blocked' => 'bg-label-danger', 'review' => 'bg-label-warning', default => 'bg-label-success' };
-            $label = match($journey['integrity_status']) { 'blocked' => 'Fake GPS / diblokir', 'review' => 'Perlu review', default => 'Tervalidasi' };
-          @endphp
-          <tr>
-            <td><strong>{{ $journey['employee_name'] }}</strong><br><small class="text-muted">{{ $journey['employee_code'] }} · {{ $journey['account_email'] ?: 'email belum tersedia' }}</small></td>
-            <td>{{ $journey['mode'] === 'overtime' ? 'Lembur' : 'Jam kerja' }}</td>
-            <td>{{ $journey['started_at']->format('H:i') }} — {{ $journey['ended_at']->format('H:i') }}</td>
-            <td>{{ $durationLabel }}</td>
-            <td><strong>{{ number_format($journey['distance_km'], 2, ',', '.') }} km</strong><br><small class="text-muted">{{ $journey['point_count'] }} titik</small></td>
-            <td><span class="badge {{ $badge }}">{{ $label }}</span></td>
-          </tr>
-        @empty
-          <tr><td colspan="6" class="text-center text-muted py-5">Belum ada perjalanan terekam pada tanggal ini.</td></tr>
-        @endforelse
-      </tbody>
-    </table>
-  </div>
-  <div class="card-body border-top"><small class="text-muted">Jarak dihitung oleh server dari titik GPS yang lolos validasi, bukan nominal yang dikirim pegawai. Gunakan sebagai acuan review klaim bensin/motor, bukan pencairan otomatis.</small></div>
-</div>
+<div class="card"><div class="card-header"><h5 class="mb-0">Daftar perjalanan</h5></div><div class="table-responsive text-nowrap"><table class="table table-hover align-middle"><thead><tr><th>Pegawai / akun</th><th>Jenis</th><th>Durasi</th><th>Jarak valid</th><th>Titik terakhir</th><th>Status lokasi</th><th>Integritas</th></tr></thead><tbody>
+@forelse($journeys as $journey)
+  @php
+    $duration = $journey['duration_seconds'];
+    $durationLabel = sprintf('%02d:%02d:%02d', intdiv($duration, 3600), intdiv($duration % 3600, 60), $duration % 60);
+    $stopLabel = $journey['is_stopped'] ? 'Berhenti ' . sprintf('%02d:%02d:%02d', intdiv($journey['stop_seconds'], 3600), intdiv($journey['stop_seconds'] % 3600, 60), $journey['stop_seconds'] % 60) : 'Bergerak / belum cukup titik';
+    $badge = match($journey['integrity_status']) { 'blocked' => 'bg-label-danger', 'review' => 'bg-label-warning', default => 'bg-label-success' };
+    $label = match($journey['integrity_status']) { 'blocked' => 'Fake GPS / diblokir', 'review' => 'Perlu review', default => 'Tervalidasi' };
+  @endphp
+  <tr class="journey-row" data-session="{{ $journey['session_key'] }}"><td><strong>{{ $journey['employee_name'] }}</strong><br><small class="text-muted">{{ $journey['employee_code'] }} - {{ $journey['account_email'] ?: 'email belum tersedia' }}</small></td><td>{{ $journey['mode'] === 'overtime' ? 'Lembur' : 'Jam kerja' }}</td><td>{{ $durationLabel }}</td><td><strong>{{ number_format($journey['distance_km'], 2, ',', '.') }} km</strong><br><small class="text-muted">{{ $journey['point_count'] }} titik</small></td><td>{{ $journey['last_seen_at']->format('H:i:s') }}<br><small class="text-muted">{{ number_format($journey['last_latitude'], 6) }}, {{ number_format($journey['last_longitude'], 6) }}</small></td><td>{{ $stopLabel }}</td><td><span class="badge {{ $badge }}">{{ $label }}</span></td></tr>
+@empty
+  <tr><td colspan="7" class="text-center text-muted py-5">Belum ada perjalanan terekam pada tanggal ini.</td></tr>
+@endforelse
+</tbody></table></div><div class="card-body border-top"><small class="text-muted">Jarak dihitung server dari titik GPS valid. Lama berhenti memakai radius 35 meter dan hanya berlaku selama sesi kerja/lembur.</small></div></div>
 @endsection
 
 @section('page-script')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
   const points = @json($mapPoints);
-
   const map = L.map('workTrackingMap').setView([-6.6127551, 106.7554874], 12);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '© OpenStreetMap',
-  }).addTo(map);
-
-  const colorFor = (status) => status === 'blocked' ? '#dc2626' : (status === 'review' ? '#f59e0b' : '#0284c7');
-  const sessions = points.reduce((grouped, point) => {
-    (grouped[point.session] ||= []).push(point);
-    return grouped;
-  }, {});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: 'OpenStreetMap' }).addTo(map);
+  const detail = document.getElementById('routeDetail');
+  const sessions = points.reduce((all, point) => { (all[point.session] ||= []).push(point); return all; }, {});
+  const routes = Object.values(sessions);
+  const routeBySession = Object.fromEntries(routes.map((route) => [route[0].session, route]));
   const bounds = [];
-
-  Object.values(sessions).forEach((route) => {
-    const validRoute = route.filter((point) => point.status === 'accepted');
-    if (validRoute.length > 1) {
-      L.polyline(validRoute.map((point) => [point.lat, point.lng]), { color: '#0284c7', weight: 5, opacity: .85 }).addTo(map);
-    }
-    route.forEach((point, index) => {
-      const color = colorFor(point.status);
-      const marker = L.circleMarker([point.lat, point.lng], { radius: index === 0 ? 8 : 6, color, fillColor: color, fillOpacity: .92 }).addTo(map);
-      const label = point.status === 'blocked' ? 'Fake GPS terdeteksi' : (point.status === 'review' ? 'Perlu review HR' : 'Tervalidasi');
-      marker.bindPopup(`<strong>${point.name}</strong><br>${point.email || '-'}<br>${point.time} · ${point.mode === 'overtime' ? 'Lembur' : 'Kerja'}<br><strong>${label}</strong>${point.flags.length ? `<br>${point.flags.join(', ')}` : ''}`);
-      bounds.push([point.lat, point.lng]);
-    });
-  });
-
-  if (bounds.length) map.fitBounds(bounds, { padding: [32, 32] });
+  const colorFor = (status) => status === 'blocked' ? '#dc2626' : (status === 'review' ? '#f59e0b' : '#0284c7');
+  const statusLabel = (status) => status === 'blocked' ? 'Fake GPS terdeteksi' : (status === 'review' ? 'Perlu review HR' : 'Tervalidasi');
+  const distanceMeters = (a, b) => { const r = 6371000, lat = (b.lat-a.lat)*Math.PI/180, lng = (b.lng-a.lng)*Math.PI/180; const x = Math.sin(lat/2)**2 + Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(lng/2)**2; return r*2*Math.atan2(Math.sqrt(x), Math.sqrt(1-x)); };
+  const stopInfo = (route) => { const last = route.at(-1); let first = last; for(let i=route.length-1;i>=0;i--){ if(distanceMeters(last,route[i])>35) break; first=route[i]; } const toSeconds=(value)=>{const [h,m,s]=value.split(':').map(Number);return h*3600+m*60+s;}; return {seconds:Math.max(0,toSeconds(last.time)-toSeconds(first.time))}; };
+  const duration = (seconds) => `${String(Math.floor(seconds/3600)).padStart(2,'0')}:${String(Math.floor(seconds%3600/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
+  const showDetail = (route) => { const last=route.at(-1), stop=stopInfo(route), stopped=stop.seconds>=180; detail.innerHTML=`<div class="d-flex align-items-center gap-2"><span class="tracking-pulse"></span><div><h5 class="mb-0">${last.name || 'Pegawai'}</h5><small class="text-muted">${last.email || '-'}</small></div></div><div class="tracking-stat"><small class="text-muted d-block">Titik terakhir</small><strong>${last.lat.toFixed(6)}, ${last.lng.toFixed(6)}</strong><small class="text-muted d-block mt-1">Diperbarui ${last.time} - ${last.mode === 'overtime' ? 'Lembur' : 'Jam kerja'}</small></div><div class="tracking-stat"><small class="text-muted d-block">Status lokasi</small><strong>${stopped ? 'Berhenti sekitar '+duration(stop.seconds) : 'Sedang bergerak / belum cukup titik'}</strong><small class="text-muted d-block mt-1">Radius berhenti maksimal 35 m.</small></div><div class="tracking-stat"><small class="text-muted d-block">Validasi sistem</small><strong class="${last.status==='blocked'?'text-danger':last.status==='review'?'text-warning':'text-success'}">${statusLabel(last.status)}</strong></div>`; };
+  const animateMotor = (marker, route) => { const path=route.filter((point)=>point.status==='accepted'); if(path.length<2)return; const loop=(started)=>{const progress=((performance.now()-started)%12000)/12000*(path.length-1), index=Math.min(path.length-2,Math.floor(progress)), part=progress-index, from=path[index], to=path[index+1]; marker.setLatLng([from.lat+(to.lat-from.lat)*part,from.lng+(to.lng-from.lng)*part]); requestAnimationFrame(()=>loop(started));}; requestAnimationFrame(loop); };
+  routes.forEach((route,index)=>{ const valid=route.filter((point)=>point.status==='accepted'); if(valid.length>1){const line=L.polyline(valid.map((point)=>[point.lat,point.lng]),{color:'#0284c7',weight:5,opacity:.85}).addTo(map);line.on('click',()=>showDetail(route));} route.forEach((point,pointIndex)=>{const color=colorFor(point.status), marker=L.circleMarker([point.lat,point.lng],{radius:pointIndex===0?8:6,color,fillColor:color,fillOpacity:.92}).addTo(map);marker.on('click',()=>showDetail(route));bounds.push([point.lat,point.lng]);}); const last=route.at(-1), motor=L.marker([last.lat,last.lng],{icon:L.divIcon({className:'tracking-motor-wrap',html:'<div class="tracking-motor">&#127949;</div>',iconSize:[38,38],iconAnchor:[19,19]})}).addTo(map);motor.on('click',()=>showDetail(route));if(index===routes.length-1)animateMotor(motor,route); });
+  document.querySelectorAll('.journey-row').forEach((row)=>row.addEventListener('click',()=>{const route=routeBySession[row.dataset.session];if(route){showDetail(route);map.flyTo([route.at(-1).lat,route.at(-1).lng],16,{duration:.7});}}));
+  if(bounds.length){map.fitBounds(bounds,{padding:[32,32]});showDetail(routes.at(-1));}
 </script>
 @endsection
