@@ -658,11 +658,11 @@
                 </label>
 
                 <input
-                    type="number"
+                    type="text"
                     name="basic_salary"
                     class="form-control"
-                    min="0"
-                    step="1000"
+                    inputmode="numeric"
+                    data-rupiah="true"
                     value="{{ old('basic_salary',$employee->basic_salary ?? 0) }}">
 
             </div>
@@ -677,11 +677,11 @@
                 </label>
 
                 <input
-                    type="number"
+                    type="text"
                     name="meal_allowance"
                     class="form-control"
-                    min="0"
-                    step="1000"
+                    inputmode="numeric"
+                    data-rupiah="true"
                     value="{{ old('meal_allowance',$employee->meal_allowance ?? 0) }}">
 
             </div>
@@ -696,11 +696,11 @@
                 </label>
 
                 <input
-                    type="number"
+                    type="text"
                     name="transport_allowance"
                     class="form-control"
-                    min="0"
-                    step="1000"
+                    inputmode="numeric"
+                    data-rupiah="true"
                     value="{{ old('transport_allowance',$employee->transport_allowance ?? 0) }}">
 
             </div>
@@ -715,11 +715,11 @@
                 </label>
 
                 <input
-                    type="number"
+                    type="text"
                     name="position_allowance"
                     class="form-control"
-                    min="0"
-                    step="1000"
+                    inputmode="numeric"
+                    data-rupiah="true"
                     value="{{ old('position_allowance',$employee->position_allowance ?? 0) }}">
 
             </div>

@@ -3,131 +3,90 @@
 namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
+use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Division;
-use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
+/** Divisions are explicitly scoped to PT OSM and optionally to a Branch/Site. */
 class DivisionController extends Controller
 {
-    /**
-     * List Division
-     */
     public function index(): View
     {
-        $divisions = Division::with([
-                'company',
-                'parent'
-            ])
-            ->latest()
-            ->paginate(10);
-
-        return view('master.Divisions.index', compact('divisions'));
+        $companyId = (int) session('company_id');
+        return view('master.Divisions.index', ['divisions' => Division::query()->with(['company', 'branch', 'parent'])
+            ->forCompany($companyId)->orderBy('name')->paginate(20)]);
     }
 
-    /**
-     * Form Tambah Division
-     */
     public function create(): View
     {
-        $companies = Company::active()
-            ->orderBy('name')
-            ->get();
-
-        $parents = Division::active()
-            ->orderBy('name')
-            ->get();
-
-        return view('master.Divisions.create', compact(
-            'companies',
-            'parents'
-        ));
+        return view('master.Divisions.create', $this->formData());
     }
 
-    /**
-     * Simpan Division
-     */
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'company_id' => ['required', 'exists:companies,id'],
-            'parent_id' => ['nullable', 'exists:divisions,id'],
-            'code' => ['required', 'string', 'max:50', 'unique:divisions,code'],
-            'name' => ['required', 'string', 'max:255'],
-            'type' => ['nullable', 'string', 'max:100'],
-            'head_user_id' => ['nullable', 'exists:users,id'],
-            'head_name' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'status' => ['required', 'in:active,inactive'],
-        ]);
-
-        Division::create($validated);
-
-        return redirect()
-            ->route('master.divisions.index')
-            ->with('success', 'Division berhasil ditambahkan.');
+        $companyId = (int) session('company_id');
+        $data = $this->validated($request, $companyId);
+        $data['company_id'] = $companyId;
+        $data['code'] = 'DIV-' . str_pad((string) (Division::query()->forCompany($companyId)->count() + 1), 4, '0', STR_PAD_LEFT);
+        Division::create($data);
+        return redirect()->route('master.divisions.index')->with('success', 'Divisi berhasil ditambahkan. Kode dibuat otomatis.');
     }
 
-    /**
-     * Form Edit Division
-     */
     public function edit(Division $division): View
     {
-        $companies = Company::active()
-            ->orderBy('name')
-            ->get();
-
-        $parents = Division::active()
-            ->where('id', '!=', $division->id)
-            ->orderBy('name')
-            ->get();
-
-        return view('master.Divisions.edit', compact(
-            'division',
-            'companies',
-            'parents'
-        ));
+        $this->ensureCompany($division);
+        return view('master.Divisions.edit', $this->formData($division) + compact('division'));
     }
 
-    /**
-     * Update Division
-     */
     public function update(Request $request, Division $division): RedirectResponse
     {
-        $validated = $request->validate([
-            'company_id' => ['required', 'exists:companies,id'],
-            'parent_id' => ['nullable', 'exists:divisions,id'],
-            'code' => [
-                'required',
-                'string',
-                'max:50',
-                'unique:divisions,code,' . $division->id,
-            ],
-            'name' => ['required', 'string', 'max:255'],
-            'type' => ['nullable', 'string', 'max:100'],
-            'head_user_id' => ['nullable', 'exists:users,id'],
-            'head_name' => ['nullable', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'status' => ['required', 'in:active,inactive'],
-        ]);
-
-        $division->update($validated);
-
-        return redirect()
-            ->route('master.divisions.index')
-            ->with('success', 'Division berhasil diperbarui.');
+        $this->ensureCompany($division);
+        $division->update($this->validated($request, (int) $division->company_id, $division));
+        return redirect()->route('master.divisions.index')->with('success', 'Divisi berhasil diperbarui.');
     }
 
-    /**
-     * Hapus Division
-     */
     public function destroy(Division $division): RedirectResponse
     {
+        $this->ensureCompany($division);
+        if ($division->positions()->exists() || $division->children()->exists()) {
+            return back()->withErrors(['division' => 'Divisi masih memiliki jabatan atau divisi turunan.']);
+        }
         $division->delete();
+        return redirect()->route('master.divisions.index')->with('success', 'Divisi berhasil dihapus.');
+    }
 
-        return redirect()
-            ->route('master.divisions.index')
-            ->with('success', 'Division berhasil dihapus.');
+    private function formData(?Division $editing = null): array
+    {
+        $companyId = (int) session('company_id');
+        return [
+            'company' => Company::query()->findOrFail($companyId),
+            'branches' => Branch::query()->forCompany($companyId)->active()->with('parent')->orderBy('name')->get(),
+            'parents' => Division::query()->forCompany($companyId)->active()->when($editing, fn ($q) => $q->whereKeyNot($editing->id))->orderBy('name')->get(),
+        ];
+    }
+
+    private function validated(Request $request, int $companyId, ?Division $editing = null): array
+    {
+        $data = $request->validate([
+            'branch_id' => ['nullable', Rule::exists('branches', 'id')->where('company_id', $companyId)],
+            'parent_id' => ['nullable', Rule::exists('divisions', 'id')->where('company_id', $companyId)],
+            'name' => ['required', 'string', 'max:255'], 'type' => ['nullable', 'string', 'max:100'],
+            'head_name' => ['nullable', 'string', 'max:255'], 'description' => ['nullable', 'string'],
+            'status' => ['required', Rule::in(['active', 'inactive'])],
+        ]);
+        if ($editing && (int) $data['parent_id'] === (int) $editing->id) {
+            throw ValidationException::withMessages(['parent_id' => 'Divisi tidak dapat menjadi induk dirinya sendiri.']);
+        }
+        return $data;
+    }
+
+    private function ensureCompany(Division $division): void
+    {
+        abort_unless((int) $division->company_id === (int) session('company_id'), 403);
     }
 }

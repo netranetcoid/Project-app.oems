@@ -33,7 +33,9 @@ class StoreContractTypeRequest extends FormRequest
 
             'legal_basis' => 'nullable|string|max:10000',
 
-            'template_body' => 'nullable|string|max:30000',
+            // Contract master is stored in LONGTEXT; 15 complete articles plus
+            // future legal clauses must not fail because of a short UI limit.
+            'template_body' => 'nullable|string|max:200000',
 
             'is_active' => 'nullable|boolean',
 

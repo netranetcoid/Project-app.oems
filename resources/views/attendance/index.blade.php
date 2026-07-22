@@ -33,7 +33,7 @@
 <div class="card mb-4"><div class="card-body">
   <form method="GET" class="row g-3 align-items-end">
     <div class="col-sm-6 col-lg-3"><label class="form-label">Tanggal</label><input type="date" class="form-control" name="date" value="{{ $date->toDateString() }}"></div>
-    <div class="col-sm-6 col-lg-3"><label class="form-label">Site / Product</label><select class="form-select" name="branch_id"><option value="">Semua site</option>@foreach($branches as $branch)<option value="{{ $branch->id }}" @selected((string) ($filters['branch_id'] ?? '') === (string) $branch->id)>{{ $branch->name }}</option>@endforeach</select></div>
+    <div class="col-sm-6 col-lg-3"><label class="form-label">Branch / Site</label><select class="form-select" name="branch_id"><option value="">Semua Branch / Site</option>@foreach($branches as $branch)<option value="{{ $branch->id }}" @selected((string) ($filters['branch_id'] ?? '') === (string) $branch->id)>{{ $branch->name }}</option>@endforeach</select></div>
     <div class="col-sm-6 col-lg-3"><label class="form-label">Status</label><select class="form-select" name="status"><option value="all">Semua status</option>@foreach($statusLabels as $value => $label)<option value="{{ $value }}" @selected($selectedStatus === $value)>{{ $label }}</option>@endforeach</select></div>
     <div class="col-sm-6 col-lg-3 d-flex gap-2"><button class="btn btn-primary"><i class="ti ti-filter me-1"></i>Tampilkan</button><a href="{{ route('attendance.index') }}" class="btn btn-label-secondary">Reset</a></div>
   </form>

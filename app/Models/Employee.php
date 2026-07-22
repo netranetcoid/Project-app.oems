@@ -336,6 +336,12 @@ public function user(): BelongsTo
         return $this->hasMany(EmployeeDocument::class);
     }
 
+    /** Ringkasan detail pegawai; akses tetap disaring oleh controller company. */
+    public function contracts(): HasMany { return $this->hasMany(EmployeeContract::class); }
+    public function attendances(): HasMany { return $this->hasMany(Attendance::class); }
+    public function kpiAssessments(): HasMany { return $this->hasMany(EmployeeKpiAssessment::class); }
+    public function payrollSlips(): HasMany { return $this->hasMany(PayrollSlip::class); }
+
     /*
     |--------------------------------------------------------------------------
     | Parent Position

@@ -32,6 +32,12 @@ class Division extends Model
         return $this->belongsTo(Division::class, 'parent_id');
     }
 
+    /** Operational scope: null means a company-wide/shared division. */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     public function children(): HasMany
     {
         return $this->hasMany(Division::class, 'parent_id');

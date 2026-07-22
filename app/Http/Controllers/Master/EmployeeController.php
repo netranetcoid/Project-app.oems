@@ -8,6 +8,10 @@ use App\Http\Requests\UpdateEmployeeRequest;
 use App\Models\Branch;
 use App\Models\Division;
 use App\Models\Employee;
+use App\Models\EmployeeContract;
+use App\Models\EmployeeKpiAssessment;
+use App\Models\Attendance;
+use App\Models\PayrollSlip;
 use App\Models\Position;
 use App\Services\Employee\EmployeeService;
 use Illuminate\Http\RedirectResponse;
@@ -32,7 +36,7 @@ class EmployeeController extends Controller
 
         $employees = Employee::query()
     ->with([
-        'branch',
+        'branch.parent',
         'division',
         'position',
         'supervisor',
@@ -139,7 +143,7 @@ public function show(
 
         'company',
 
-        'branch',
+        'branch.parent',
 
         'division',
 
@@ -153,10 +157,24 @@ public function show(
 
     ]);
 
+    // Semua ringkasan di halaman pegawai wajib dibatasi company aktif. Ini
+    // mencegah HR lintas branch/site membaca data payroll atau absensi company lain.
+    $companyId = (int) session('company_id');
+    $contracts = EmployeeContract::forCompany($companyId)
+        ->with('contractType')->where('employee_id', $employee->id)
+        ->latest('start_date')->limit(10)->get();
+    $attendances = Attendance::query()->with('shift')
+        ->where('company_id', $companyId)->where('employee_id', $employee->id)
+        ->latest('date')->latest('id')->limit(31)->get();
+    $kpiAssessments = EmployeeKpiAssessment::forCompany($companyId)
+        ->where('employee_id', $employee->id)->latest('id')->limit(12)->get();
+    $payrollSlips = PayrollSlip::forCompany($companyId)->with('period')
+        ->where('employee_id', $employee->id)->latest('id')->limit(12)->get();
+
     return view(
         'master.employees.show',
         compact(
-            'employee'
+            'employee', 'contracts', 'attendances', 'kpiAssessments', 'payrollSlips'
         )
     );
 }

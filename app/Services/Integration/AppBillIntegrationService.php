@@ -191,7 +191,11 @@ class AppBillIntegrationService
                 'status' => 'processing',
                 'attempts' => (int) $locked->attempts + 1,
                 'locked_at' => now(),
+                'last_attempt_at' => now(),
                 'last_error' => null,
+                'retry_category' => null,
+                'retry_after_seconds' => null,
+                'last_error_code' => null,
             ]);
             return $locked->fresh('connection');
         });
@@ -232,19 +236,26 @@ class AppBillIntegrationService
                 'next_retry_at' => null,
                 'response_status' => $delivery['status'],
                 'response_summary' => $delivery['summary'],
+                'retry_category' => null,
+                'retry_after_seconds' => null,
+                'last_error_code' => null,
             ]);
             $connection->update(['health_status' => 'ready', 'last_success_at' => now()]);
         } catch (Throwable $exception) {
             $attempts = (int) $event->attempts;
             $retryLimit = max(1, (int) $connection->retry_limit);
-            $isDead = $attempts >= $retryLimit;
-            $delaySeconds = min(3600, 30 * (2 ** max(0, $attempts - 1)));
+            $failure = $this->classifyFailure($exception);
+            $isDead = $failure['permanent'] || $attempts >= $retryLimit;
+            $delaySeconds = $failure['retry_after'] ?? min(3600, 30 * (2 ** max(0, $attempts - 1)));
 
             $event->update([
                 'status' => $isDead ? 'dead' : 'failed',
                 'locked_at' => null,
                 'next_retry_at' => $isDead ? null : now()->addSeconds($delaySeconds),
                 'last_error' => Str::limit($exception->getMessage(), 1000, ''),
+                'retry_category' => $failure['category'],
+                'retry_after_seconds' => $isDead ? null : $delaySeconds,
+                'last_error_code' => $failure['code'],
             ]);
             $connection->update(['health_status' => 'warning', 'last_failure_at' => now()]);
         }
@@ -284,6 +295,9 @@ class AppBillIntegrationService
             'next_retry_at' => now(),
             'locked_at' => null,
             'last_error' => null,
+            'retry_category' => null,
+            'retry_after_seconds' => null,
+            'last_error_code' => null,
         ]);
         return $event->fresh();
     }
@@ -313,6 +327,19 @@ class AppBillIntegrationService
     private function bpjsPayloadEnabledForConnection(IntegrationConnection $connection): bool
     {
         return (bool) data_get($connection->settings, 'bpjs_payload_enabled', false);
+    }
+
+    /** Retry hanya untuk gangguan sementara; 4xx konfigurasi tidak diputar tanpa akhir. */
+    private function classifyFailure(Throwable $exception): array
+    {
+        $message = $exception->getMessage();
+        preg_match('/HTTP\s+(\d{3})/', $message, $match);
+        $status = isset($match[1]) ? (int) $match[1] : null;
+        if ($status === 429) return ['category' => 'rate_limited', 'code' => 'HTTP_429', 'permanent' => false, 'retry_after' => 300];
+        if ($status !== null && ($status === 408 || $status === 425 || $status >= 500)) return ['category' => 'server_or_timeout', 'code' => 'HTTP_'.$status, 'permanent' => false, 'retry_after' => null];
+        if ($status !== null && $status >= 400) return ['category' => 'configuration_or_validation', 'code' => 'HTTP_'.$status, 'permanent' => true, 'retry_after' => null];
+        if (str_contains(strtolower($message), 'konfigurasi')) return ['category' => 'configuration', 'code' => 'CONFIG', 'permanent' => true, 'retry_after' => null];
+        return ['category' => 'network_or_unknown', 'code' => 'TRANSPORT', 'permanent' => false, 'retry_after' => null];
     }
 
     private function bpjsPayloadForSlip($slip): array

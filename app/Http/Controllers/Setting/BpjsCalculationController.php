@@ -29,6 +29,7 @@ class BpjsCalculationController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
+        $this->normalizeRupiah($request, ['bpjs_kesehatan_wage_cap', 'batas_upah_jp']);
         $setting = $this->calculator->settingForCompany((int) session('company_id'));
         $data = $this->validatedSettings($request);
         $data['aktif'] = $request->boolean('aktif');
@@ -39,6 +40,9 @@ class BpjsCalculationController extends Controller
 
     public function preview(Request $request): RedirectResponse
     {
+        // Browser boleh mengirim format Indonesia 1.500.000. Normalisasi di
+        // server memastikan simulasi tetap jalan jika JavaScript tidak aktif.
+        $this->normalizeRupiah($request, ['basic_salary', 'fixed_allowance']);
         $data = $request->validate([
             'basic_salary' => ['required', 'numeric', 'min:0'],
             'fixed_allowance' => ['nullable', 'numeric', 'min:0'],
@@ -85,5 +89,12 @@ class BpjsCalculationController extends Controller
             'effective_from' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
+    }
+
+    private function normalizeRupiah(Request $request, array $fields): void
+    {
+        $request->merge(collect($fields)->mapWithKeys(fn (string $field) => [$field => $request->filled($field)
+            ? preg_replace('/[^0-9]/', '', (string) $request->input($field))
+            : null])->all());
     }
 }

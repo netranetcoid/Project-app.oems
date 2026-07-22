@@ -93,5 +93,8 @@
 
 <div class="mt-4 d-flex gap-2">
     <button class="btn btn-primary"><i class="ti ti-device-floppy"></i> Simpan Master Kontrak</button>
+    <button type="button" class="btn btn-outline-primary" id="previewContractMaster"><i class="ti ti-eye"></i> Review Sebelum Simpan</button>
     <a href="{{ route('master.contract-types.index') }}" class="btn btn-label-secondary">Kembali</a>
 </div>
+<div class="modal fade" id="contractPreviewModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Review Naskah Master Kontrak</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="border-bottom pb-3 mb-3 text-center"><img src="{{ asset('assets/img/logo_osm_transparent.png') }}" alt="OSM" style="max-height:70px;max-width:180px"><h5 class="mt-2 mb-0">PT. OVALL SOLUSINDO MANDIRI</h5><small>Preview sebelum perubahan disimpan</small></div><h5 class="text-center" id="previewContractTitle"></h5><div id="previewContractBody" class="lh-lg" style="white-space:pre-wrap"></div></div></div></div></div>
+<script>document.getElementById('previewContractMaster').addEventListener('click',function(){document.getElementById('previewContractTitle').textContent=(document.getElementById('name').value||'MASTER KONTRAK').toUpperCase();document.getElementById('previewContractBody').textContent=document.getElementById('template_body').value||'Naskah belum diisi.';new bootstrap.Modal(document.getElementById('contractPreviewModal')).show();});</script>

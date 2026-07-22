@@ -57,11 +57,18 @@ class ContractTypeService
 
             $this->applyReferenceDefaults($data);
 
+            // Browsers may submit CRLF while older saved templates use LF.
+            // Normalize first so simply opening/saving never creates a fake
+            // version increase; a version changes only for real text edits.
+            if (array_key_exists('template_body', $data)) {
+                $data['template_body'] = $this->normalizeTemplateBody($data['template_body']);
+            }
+
             // A version gives HR an audit trail: new employee contracts take
             // a snapshot of the new master, while issued contracts remain
             // unchanged and printable as originally approved.
             if (array_key_exists('template_body', $data)
-                && trim((string) $data['template_body']) !== trim((string) $contractType->template_body)) {
+                && $data['template_body'] !== $this->normalizeTemplateBody($contractType->template_body)) {
                 $data['template_version'] = ((int) $contractType->template_version) + 1;
             }
 
@@ -89,6 +96,12 @@ class ContractTypeService
         $data['template_body'] = trim((string) ($data['template_body'] ?? ''))
             ?: $this->printTemplates->bodyFor($data['template_key']);
         $data['legal_basis'] = trim((string) ($data['legal_basis'] ?? '')) ?: $reference['legal_basis'];
+    }
+
+    /** Keep document line endings stable across Windows, web, PDF, and VPS. */
+    private function normalizeTemplateBody(?string $body): string
+    {
+        return trim(str_replace(["\r\n", "\r"], "\n", (string) $body));
     }
 
     /*

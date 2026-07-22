@@ -114,11 +114,11 @@ class MenuSeeder extends Seeder
         ]);
 
         // Master yang sudah memiliki route aktif. Perusahaan PT OSM tetap
-        // dikelola sebagai legal entity, sedangkan site/product di Branch.
+        // PT OSM adalah legal entity; struktur operasionalnya Branch -> Site.
         $this->child($modules['setting'] ?? null, $master, 'hr-settings', 'Aturan HR & Absensi', 'hr.settings.index', 'attendance.view', 1, 'ri ri-settings-4-line');
-        $this->child($modules['master'] ?? null, $master, 'branch', 'Site / Product', 'master.branches.index', 'branch.view', 2, 'ri ri-building-2-line');
+        $this->child($modules['master'] ?? null, $master, 'branch', 'Branch / Site', 'master.branches.index', 'branch.view', 2, 'ri ri-building-2-line');
         $this->child($modules['master'] ?? null, $master, 'division', 'Divisi', 'master.divisions.index', 'division.view', 3, 'ri ri-node-tree');
-        $this->child($modules['master'] ?? null, $master, 'position', 'Jabatan & Batas KPI', 'master.positions.index', 'position.view', 4, 'ri ri-organization-chart');
+        $this->child($modules['master'] ?? null, $master, 'position', 'Jabatan', 'master.positions.index', 'position.view', 4, 'ri ri-organization-chart');
         $this->child($modules['master'] ?? null, $master, 'contract-type', 'Jenis Kontrak', 'master.contract-types.index', 'contract-type.view', 5, 'ri ri-file-list-3-line');
         $this->child($modules['master'] ?? null, $master, 'company-documents', 'Master Dokumen', 'master.company-documents.index', 'company-document.view', 6, 'ri ri-folder-paper-line');
         $this->child($modules['attendance'] ?? null, $master, 'master-attendance-shifts', 'Shift Kerja', 'attendance.shifts.index', 'attendance.shift.view', 6, 'ri ri-time-line');

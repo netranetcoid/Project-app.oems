@@ -98,7 +98,7 @@ class ContractTypeController extends Controller
         );
 
         return redirect()
-            ->route('contract-types.index')
+            ->route('master.contract-types.index')
             ->with(
                 'success',
                 'Jenis kontrak berhasil ditambahkan.'
@@ -148,7 +148,7 @@ class ContractTypeController extends Controller
         );
 
         return redirect()
-            ->route('contract-types.index')
+            ->route('master.contract-types.index')
             ->with(
                 'success',
                 'Jenis kontrak berhasil diperbarui.'
@@ -175,7 +175,7 @@ class ContractTypeController extends Controller
         );
 
         return redirect()
-            ->route('contract-types.index')
+            ->route('master.contract-types.index')
             ->with(
                 'success',
                 'Jenis kontrak berhasil dihapus.'

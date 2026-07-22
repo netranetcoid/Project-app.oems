@@ -5,106 +5,114 @@ namespace App\Http\Controllers\Master;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\Company;
-use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
+/** Manages PT OSM's operational tree: Branches may own multiple Sites. */
 class BranchController extends Controller
 {
-    /**
-     * List Site
-     */
     public function index(): View
     {
-        $branches = Branch::with('company')
-            ->latest()
-            ->paginate(10);
+        $companyId = (int) session('company_id');
+        $branches = Branch::query()->with(['company', 'parent'])->forCompany($companyId)
+            ->orderByRaw("CASE WHEN type = 'branch' THEN 0 WHEN type = 'head_office' THEN 1 ELSE 2 END")
+            ->orderBy('name')->paginate(20);
 
         return view('master.Branches.index', compact('branches'));
     }
 
-    /**
-     * Form Tambah Site
-     */
     public function create(): View
     {
-        $companies = Company::active()
-            ->orderBy('name')
-            ->get();
-
-        return view('master.Branches.create', compact('companies'));
+        $company = $this->activeCompany();
+        return view('master.Branches.create', [
+            'company' => $company,
+            'parents' => Branch::query()->forCompany($company->id)->active()
+                ->whereIn('type', ['branch', 'head_office'])->orderBy('name')->get(),
+        ]);
     }
 
-    /**
-     * Simpan Site
-     */
     public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'company_id' => ['required', 'exists:companies,id'],
-            'code'       => ['required', 'string', 'max:50', 'unique:branches,code'],
-            'name'       => ['required', 'string', 'max:255'],
-            'type'       => ['nullable', 'string', 'max:50'],
-            'email'      => ['nullable', 'email', 'max:255'],
-            'phone'      => ['nullable', 'string', 'max:50'],
-            'address'    => ['nullable', 'string'],
-            'status'     => ['required', 'in:active,inactive,closed'],
-        ]);
+        $company = $this->activeCompany();
+        $data = $this->validated($request, $company->id);
+        $data['company_id'] = $company->id;
+        $data['code'] = $this->nextCode($company->id, $data['type']);
+        Branch::create($data);
 
-        Branch::create($validated);
-
-        return redirect()
-            ->route('master.branches.index')
-            ->with('success', 'Site berhasil ditambahkan.');
+        return redirect()->route('master.branches.index')->with('success', 'Branch / Site berhasil ditambahkan. Kode dibuat otomatis.');
     }
 
-    /**
-     * Form Edit Site
-     */
     public function edit(Branch $branch): View
     {
-        $companies = Company::active()
-            ->orderBy('name')
-            ->get();
-
-        return view('master.Branches.edit', compact(
-            'branch',
-            'companies'
-        ));
+        $this->ensureCompany($branch);
+        return view('master.Branches.edit', [
+            'branch' => $branch,
+            'company' => $this->activeCompany(),
+            'parents' => Branch::query()->forCompany($branch->company_id)->active()
+                ->whereIn('type', ['branch', 'head_office'])->whereKeyNot($branch->id)->orderBy('name')->get(),
+        ]);
     }
 
-    /**
-     * Update Site
-     */
     public function update(Request $request, Branch $branch): RedirectResponse
     {
-        $validated = $request->validate([
-            'company_id' => ['required', 'exists:companies,id'],
-            'code'       => ['required', 'string', 'max:50', 'unique:branches,code,' . $branch->id],
-            'name'       => ['required', 'string', 'max:255'],
-            'type'       => ['nullable', 'string', 'max:50'],
-            'email'      => ['nullable', 'email', 'max:255'],
-            'phone'      => ['nullable', 'string', 'max:50'],
-            'address'    => ['nullable', 'string'],
-            'status'     => ['required', 'in:active,inactive,closed'],
-        ]);
-
-        $branch->update($validated);
-
-        return redirect()
-            ->route('master.branches.index')
-            ->with('success', 'Site berhasil diperbarui.');
+        $this->ensureCompany($branch);
+        // Codes are immutable after creation so payroll and external mapping stay stable.
+        $branch->update($this->validated($request, (int) $branch->company_id, $branch));
+        return redirect()->route('master.branches.index')->with('success', 'Branch / Site berhasil diperbarui.');
     }
 
-    /**
-     * Hapus Site
-     */
     public function destroy(Branch $branch): RedirectResponse
     {
+        $this->ensureCompany($branch);
+        if ($branch->sites()->exists()) {
+            return back()->withErrors(['branch' => 'Pindahkan atau nonaktifkan Site di bawah Branch ini terlebih dahulu.']);
+        }
         $branch->delete();
+        return redirect()->route('master.branches.index')->with('success', 'Branch / Site berhasil dihapus.');
+    }
 
-        return redirect()
-            ->route('master.branches.index')
-            ->with('success', 'Site berhasil dihapus.');
+    private function validated(Request $request, int $companyId, ?Branch $editing = null): array
+    {
+        $data = $request->validate([
+            'parent_branch_id' => ['nullable', Rule::exists('branches', 'id')->where('company_id', $companyId)],
+            'name' => ['required', 'string', 'max:255'],
+            'type' => ['required', Rule::in(['head_office', 'branch', 'site', 'warehouse', 'project'])],
+            'email' => ['nullable', 'email', 'max:255'], 'phone' => ['nullable', 'string', 'max:50'],
+            'address' => ['nullable', 'string'], 'pic_name' => ['nullable', 'string', 'max:255'],
+            'pic_phone' => ['nullable', 'string', 'max:50'],
+            'status' => ['required', Rule::in(['active', 'inactive', 'closed'])],
+        ]);
+
+        if ($editing && (int) $data['parent_branch_id'] === (int) $editing->id) {
+            throw ValidationException::withMessages(['parent_branch_id' => 'Branch tidak dapat menjadi induk dirinya sendiri.']);
+        }
+        if ($data['type'] === 'site' && empty($data['parent_branch_id'])) {
+            throw ValidationException::withMessages(['parent_branch_id' => 'Site wajib berada di bawah Branch atau Head Office.']);
+        }
+        if ($data['type'] !== 'site') {
+            $data['parent_branch_id'] = null;
+        }
+
+        return $data;
+    }
+
+    private function nextCode(int $companyId, string $type): string
+    {
+        $prefix = ['head_office' => 'HO', 'branch' => 'BR', 'site' => 'ST', 'warehouse' => 'WH', 'project' => 'PRJ'][$type] ?? 'UNT';
+        $sequence = Branch::query()->withTrashed()->forCompany($companyId)->where('code', 'like', $prefix . '-%')->count() + 1;
+        return $prefix . '-' . str_pad((string) $sequence, 4, '0', STR_PAD_LEFT);
+    }
+
+    private function activeCompany(): Company
+    {
+        return Company::query()->findOrFail((int) session('company_id'));
+    }
+
+    private function ensureCompany(Branch $branch): void
+    {
+        abort_unless((int) $branch->company_id === (int) session('company_id'), 403);
     }
 }

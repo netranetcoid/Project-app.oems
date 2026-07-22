@@ -11,11 +11,8 @@
 
     const digits = (value) => {
       const text = String(value ?? '').trim();
-      // Hanya nilai database seperti 1500000.00 yang boleh kehilangan
-      // pecahan .00. Jangan pakai pola .0+ karena 2.000 adalah dua ribu,
-      // bukan angka dua desimal nol.
-      const databaseDecimal = text.match(/^(\d+)\.(\d{1,2})$/);
-      return databaseDecimal ? databaseDecimal[1] : text.replace(/\D/g, '');
+      const decimalWithZero = text.match(/^(\d+)\.0+$/);
+      return decimalWithZero ? decimalWithZero[1] : text.replace(/\D/g, '');
     };
     const format = (value) => {
       const raw = digits(value);

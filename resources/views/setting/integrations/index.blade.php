@@ -218,7 +218,7 @@
   <div class="card-header"><h5 class="mb-1">Outbox Integrasi</h5><small class="text-muted">Idempotency mencegah event payroll terkirim dua kali.</small></div>
   <div class="table-responsive">
     <table class="table align-middle">
-      <thead><tr><th>Event</th><th>Jenis</th><th>Status</th><th>Percobaan</th><th>Respons</th><th>Waktu</th><th></th></tr></thead>
+      <thead><tr><th>Event</th><th>Jenis</th><th>Status</th><th>Percobaan / Retry</th><th>Respons</th><th>Waktu</th><th></th></tr></thead>
       <tbody>
       @forelse($events as $event)
         @php($eventColor = match($event->status) {'sent'=>'success','dead'=>'danger','failed'=>'warning','processing'=>'info',default=>'secondary'})
@@ -226,9 +226,9 @@
           <td><code>{{ Illuminate\Support\Str::limit($event->event_id,18) }}</code><div class="small text-muted">{{ Illuminate\Support\Str::limit($event->idempotency_key,42) }}</div></td>
           <td>{{ $event->event_type }}<div class="small text-muted">{{ $event->aggregate_type ? class_basename($event->aggregate_type).' #'.$event->aggregate_id : '-' }}</div></td>
           <td><span class="badge bg-label-{{ $eventColor }}">{{ strtoupper($event->status) }}</span></td>
-          <td>{{ $event->attempts }} / {{ $event->connection?->retry_limit ?? 0 }}</td>
-          <td><span class="small">{{ data_get($event->response_summary,'code',$event->last_error ?: '-') }}</span></td>
-          <td class="small">{{ $event->created_at?->format('d/m/Y H:i:s') }}</td>
+          <td>{{ $event->attempts }} / {{ $event->connection?->retry_limit ?? 0 }}@if($event->retry_category)<div class="small text-muted">{{ str($event->retry_category)->replace('_',' ')->title() }}@if($event->next_retry_at) · ulang {{ $event->next_retry_at->format('H:i:s') }}@endif</div>@endif</td>
+          <td><span class="small">{{ data_get($event->response_summary,'code',$event->last_error_code ?: ($event->last_error ?: '-')) }}</span></td>
+          <td class="small">Buat: {{ $event->created_at?->format('d/m/Y H:i:s') }}@if($event->last_attempt_at)<br>Terakhir: {{ $event->last_attempt_at->format('d/m/Y H:i:s') }}@endif</td>
           <td>@can('integration.dispatch') @if($event->status !== 'sent')<form method="POST" action="{{ route('settings.integrations.retry',$event) }}">@csrf<button class="btn btn-sm btn-label-primary">Ulangi</button></form>@endif @endcan</td>
         </tr>
       @empty<tr><td colspan="7" class="text-center text-muted py-5">Belum ada event integrasi.</td></tr>@endforelse

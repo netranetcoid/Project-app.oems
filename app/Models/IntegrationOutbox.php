@@ -15,6 +15,7 @@ class IntegrationOutbox extends Model
         'payload' => 'encrypted:array',
         'response_summary' => 'array',
         'next_retry_at' => 'datetime',
+        'last_attempt_at' => 'datetime',
         'locked_at' => 'datetime',
         'sent_at' => 'datetime',
     ];
@@ -29,4 +30,3 @@ class IntegrationOutbox extends Model
         return $this->belongsTo(IntegrationConnection::class, 'integration_connection_id');
     }
 }
-

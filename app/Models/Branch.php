@@ -13,6 +13,7 @@ class Branch extends Model
 
     protected $fillable = [
         'company_id',
+        'parent_branch_id',
         'code',
         'name',
         'type',
@@ -54,14 +55,25 @@ class Branch extends Model
     */
 
     public function company(): BelongsTo
-{
-    return $this->belongsTo(Company::class);
-}
+    {
+        return $this->belongsTo(Company::class);
+    }
 
-    public function divisions(): HasMany
-{
-    return $this->hasMany(Division::class);
-}
+    /** Parent is filled only for a Site that lives under an operational Branch. */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_branch_id');
+    }
+
+    public function sites(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_branch_id');
+    }
+
+public function divisions(): HasMany
+    {
+        return $this->hasMany(Division::class);
+    }
 
    
    /*

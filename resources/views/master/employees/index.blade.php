@@ -48,7 +48,7 @@
 
                         <th>Nama</th>
 
-                        <th>Branch</th>
+                        <th>Company / Branch / Site</th>
 
                         <th>Divisi</th>
 
@@ -102,7 +102,8 @@
 
                             <td>
 
-                                {{ $employee->branch?->name }}
+                                <strong>PT OSM</strong><br>
+                                <small class="text-muted">{{ $employee->branch?->parent?->name ? $employee->branch->parent->name.' → ' : '' }}{{ $employee->branch?->name ?: 'Belum ditetapkan' }}</small>
 
                             </td>
 

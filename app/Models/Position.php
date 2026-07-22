@@ -40,6 +40,12 @@ class Position extends Model
         return $this->belongsTo(Division::class);
     }
 
+    /** Optional operational Branch/Site scope for payroll and KPI ownership. */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
     public function parent(): BelongsTo
     {
         return $this->belongsTo(Position::class, 'parent_id');

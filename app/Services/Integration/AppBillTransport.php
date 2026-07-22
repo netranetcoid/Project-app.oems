@@ -55,20 +55,20 @@ class AppBillTransport
             ]);
         $raw = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         $requestId = (string) Str::uuid();
+        $url = $baseUrl . '/' . ltrim($path, '/');
 
         $response = Http::acceptJson()
             ->asJson()
             ->withToken($token)
-            ->withHeaders([
+            ->withHeaders(array_merge([
                 'X-Company-Code' => $company->code,
                 'X-Request-Id' => $requestId,
                 'X-Event-ID' => $event->event_id,
                 'Idempotency-Key' => $event->idempotency_key,
-                'X-Signature' => 'sha256=' . hash_hmac('sha256', $raw, $secret),
-            ])
+            ], $this->signedHeaders('POST', $path, $raw, $requestId, $secret)))
             ->timeout(max(1, min(60, (int) $connection->timeout_seconds)))
             ->withBody($raw, 'application/json')
-            ->post($baseUrl . '/' . ltrim($path, '/'));
+            ->post($url);
 
         if (! $response->successful()) {
             throw new RuntimeException("AppBill HTTP {$response->status()}: " . Str::limit((string) $response->body(), 300, ''));
@@ -134,13 +134,12 @@ class AppBillTransport
         $request = Http::acceptJson()
             ->asJson()
             ->withToken($token)
-            ->withHeaders([
+            ->withHeaders(array_merge([
                 'X-Company-Code' => $company->code,
                 'X-Request-Id' => $requestId,
                 'X-Event-ID' => $eventId,
                 'Idempotency-Key' => "appbill:direct-connection-test:{$eventId}",
-                'X-Signature' => 'sha256=' . hash_hmac('sha256', $raw, $secret),
-            ])
+            ], $this->signedHeaders('POST', $path, $raw, $requestId, $secret)))
             ->timeout(max(1, min(60, (int) $connection->timeout_seconds)));
 
         // TLS verification stays on by default; owner may only disable it for
@@ -168,6 +167,20 @@ class AppBillTransport
                 'request_id' => $requestId,
                 'event_id' => $eventId,
             ],
+        ];
+    }
+
+    /** Header signature v2: body saja tidak cukup; path dan waktu ikut dikunci. */
+    private function signedHeaders(string $method, string $path, string $raw, string $requestId, string $secret): array
+    {
+        $timestamp = now('UTC')->toIso8601String();
+        $nonce = (string) Str::uuid();
+        $canonical = implode("\n", [$timestamp, $nonce, $requestId, strtoupper($method), '/'.ltrim($path, '/'), $raw]);
+        return [
+            'X-Timestamp' => $timestamp,
+            'X-Nonce' => $nonce,
+            'X-Signature-Version' => '2',
+            'X-Signature' => 'sha256='.hash_hmac('sha256', $canonical, $secret),
         ];
     }
 }
