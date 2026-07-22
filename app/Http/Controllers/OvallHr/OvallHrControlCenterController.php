@@ -193,7 +193,9 @@ class OvallHrControlCenterController extends Controller
                 'last_latitude' => (float) $last->latitude,
                 'last_longitude' => (float) $last->longitude,
                 'last_seen_at' => $endedAt,
-                'is_stopped' => $stopSeconds >= 180,
+                // Status berhenti baru ditampilkan setelah 10 menit agar HR
+                // tidak menerima sinyal "berhenti" hanya karena GPS diam sesaat.
+                'is_stopped' => $stopSeconds >= 600,
                 'stop_seconds' => $stopSeconds,
             ];
         })->values();
