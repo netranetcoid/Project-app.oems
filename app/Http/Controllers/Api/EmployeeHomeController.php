@@ -17,21 +17,31 @@ class EmployeeHomeController extends Controller
         $employee = $request->user()?->employee;
         abort_unless($employee && (int) $employee->company_id === (int) $request->user()->company_id, 403, 'Akun tidak terhubung ke data karyawan.');
         $employee->load(['company', 'branch', 'division', 'position']);
+
+        // Database menyimpan instant UTC. Kalender kerja, jam tampilan, dan
+        // perhitungan hari harus selalu memakai timezone perusahaan.
+        $timezone = (string) ($employee->company?->timezone ?: 'Asia/Jakarta');
+        if (!in_array($timezone, timezone_identifiers_list(), true)) {
+            $timezone = 'Asia/Jakarta';
+        }
+        $businessNow = now($timezone);
+
         $attendance = Attendance::query()->where('company_id', $employee->company_id)
-            ->where('employee_id', $employee->id)->whereDate('date', today())->with('shift')->first();
-        // Selama belum checkout, jam kerja harus tetap bergerak pada dashboard.
+            ->where('employee_id', $employee->id)
+            ->whereDate('date', $businessNow->toDateString())
+            ->with('shift')->first();
+        // Durasi memakai instant UTC agar akurat; jam lokal hanya untuk UI.
         $workMinutes = $attendance?->clock_in_at
-            ? max(0, $attendance->clock_in_at->diffInMinutes($attendance->clock_out_at ?: now())) : 0;
+            ? max(0, $attendance->clock_in_at->diffInMinutes($attendance->clock_out_at ?: now('UTC'))) : 0;
         // Dashboard memuat lembur hari ini dalam respons yang sama agar APK
         // dapat menghitung total real-time tanpa request tambahan.
-        $timezone = $employee->company?->timezone ?: 'Asia/Jakarta';
         $overtime = OvertimeAttendance::query()
             ->where('company_id', $employee->company_id)
             ->where('employee_id', $employee->id)
-            ->whereDate('date', now($timezone)->toDateString())
+            ->whereDate('date', $businessNow->toDateString())
             ->first();
         $overtimeMinutes = $overtime?->clock_in_at
-            ? max(0, $overtime->clock_in_at->diffInMinutes($overtime->clock_out_at ?: now())) : 0;
+            ? max(0, $overtime->clock_in_at->diffInMinutes($overtime->clock_out_at ?: now('UTC'))) : 0;
         $companySettings = is_array($employee->company?->settings) ? $employee->company->settings : [];
         $birthdaySettings = is_array($companySettings['mobile_birthday'] ?? null) ? $companySettings['mobile_birthday'] : [];
         // Ucapan dibuat sebagai perayaan perusahaan: seluruh pegawai aktif
@@ -41,8 +51,8 @@ class EmployeeHomeController extends Controller
             ->forCompany((int) $employee->company_id)
             ->active()
             ->whereNotNull('birth_date')
-            ->whereMonth('birth_date', today()->month)
-            ->whereDay('birth_date', today()->day)
+            ->whereMonth('birth_date', $businessNow->month)
+            ->whereDay('birth_date', $businessNow->day)
             ->orderBy('name')
             ->limit(5)
             ->get(['id', 'name']);
@@ -58,8 +68,8 @@ class EmployeeHomeController extends Controller
                 'avatar_url' => $employee->photo_url,
             ],
             'attendance' => [
-                'clock_in' => $attendance?->clock_in_at?->format('H:i'),
-                'clock_out' => $attendance?->clock_out_at?->format('H:i'),
+                'clock_in' => $attendance?->clock_in_at?->copy()->setTimezone($timezone)->format('H:i'),
+                'clock_out' => $attendance?->clock_out_at?->copy()->setTimezone($timezone)->format('H:i'),
                 'clock_in_at' => $attendance?->clock_in_at?->toIso8601String(),
                 'clock_out_at' => $attendance?->clock_out_at?->toIso8601String(),
                 'shift' => $attendance?->shift?->name ?? 'Belum ada jadwal',
@@ -67,8 +77,8 @@ class EmployeeHomeController extends Controller
                 'work_minutes' => $workMinutes,
             ],
             'overtime' => [
-                'clock_in' => $overtime?->clock_in_at?->format('H:i'),
-                'clock_out' => $overtime?->clock_out_at?->format('H:i'),
+                'clock_in' => $overtime?->clock_in_at?->copy()->setTimezone($timezone)->format('H:i'),
+                'clock_out' => $overtime?->clock_out_at?->copy()->setTimezone($timezone)->format('H:i'),
                 'clock_in_at' => $overtime?->clock_in_at?->toIso8601String(),
                 'clock_out_at' => $overtime?->clock_out_at?->toIso8601String(),
                 'work_minutes' => $overtimeMinutes,
