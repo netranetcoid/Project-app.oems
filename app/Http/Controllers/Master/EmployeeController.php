@@ -13,6 +13,8 @@ use App\Models\EmployeeKpiAssessment;
 use App\Models\Attendance;
 use App\Models\PayrollSlip;
 use App\Models\Position;
+use App\Models\EmployeeRequest;
+use App\Models\EmployeeTask;
 use App\Services\Employee\EmployeeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -171,10 +173,22 @@ public function show(
     $payrollSlips = PayrollSlip::forCompany($companyId)->with('period')
         ->where('employee_id', $employee->id)->latest('id')->limit(12)->get();
 
+    // Riwayat tambahan hanya dibaca bila user memiliki permission modulnya.
+    // Kedua query tetap dibatasi employee dan company aktif.
+    $canViewRequests = (bool) auth()->user()?->can('hr-request.view');
+    $canViewTasks = (bool) auth()->user()?->can('task.view');
+    $employeeRequests = $canViewRequests
+        ? EmployeeRequest::forCompany($companyId)->where('employee_id', $employee->id)->latest('submitted_at')->limit(12)->get()
+        : collect();
+    $employeeTasks = $canViewTasks
+        ? EmployeeTask::query()->where('company_id', $companyId)->where('employee_id', $employee->id)->latest('id')->limit(12)->get()
+        : collect();
+
     return view(
         'master.employees.show',
         compact(
-            'employee', 'contracts', 'attendances', 'kpiAssessments', 'payrollSlips'
+            'employee', 'contracts', 'attendances', 'kpiAssessments', 'payrollSlips',
+            'canViewRequests', 'canViewTasks', 'employeeRequests', 'employeeTasks'
         )
     );
 }

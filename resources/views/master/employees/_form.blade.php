@@ -369,6 +369,27 @@
 
 </div>
 <div class="card mt-4">
+    <div class="card-header">
+        <h5 class="mb-0">Alamat & Kontak Darurat</h5>
+        <small class="text-muted">Data ini dibatasi company aktif dan digunakan untuk profil, kontrak, serta kesiapan BPJS.</small>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6 mb-3"><label class="form-label">Alamat KTP</label><textarea name="address" rows="3" class="form-control @error('address') is-invalid @enderror">{{ old('address',$employee->address ?? '') }}</textarea>@error('address')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+            <div class="col-md-6 mb-3"><label class="form-label">Alamat Domisili</label><textarea name="domicile_address" rows="3" class="form-control @error('domicile_address') is-invalid @enderror">{{ old('domicile_address',$employee->domicile_address ?? '') }}</textarea>@error('domicile_address')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+            <div class="col-md-3 mb-3"><label class="form-label">Provinsi</label><input type="text" name="province" class="form-control" value="{{ old('province',$employee->province ?? '') }}"></div>
+            <div class="col-md-3 mb-3"><label class="form-label">Kota / Kabupaten</label><input type="text" name="city" class="form-control" value="{{ old('city',$employee->city ?? '') }}"></div>
+            <div class="col-md-3 mb-3"><label class="form-label">Kecamatan</label><input type="text" name="district" class="form-control" value="{{ old('district',$employee->district ?? '') }}"></div>
+            <div class="col-md-3 mb-3"><label class="form-label">Kelurahan / Desa</label><input type="text" name="village" class="form-control" value="{{ old('village',$employee->village ?? '') }}"></div>
+            <div class="col-md-3 mb-3"><label class="form-label">Kode Pos</label><input type="text" name="postal_code" class="form-control" inputmode="numeric" value="{{ old('postal_code',$employee->postal_code ?? '') }}"></div>
+            <div class="col-md-3 mb-3"><label class="form-label">Kontak Darurat</label><input type="text" name="emergency_contact_name" class="form-control" value="{{ old('emergency_contact_name',$employee->emergency_contact_name ?? '') }}"></div>
+            <div class="col-md-3 mb-3"><label class="form-label">Hubungan</label><input type="text" name="emergency_contact_relation" class="form-control" value="{{ old('emergency_contact_relation',$employee->emergency_contact_relation ?? '') }}"></div>
+            <div class="col-md-3 mb-3"><label class="form-label">No. Kontak Darurat</label><input type="text" name="emergency_contact_phone" class="form-control" value="{{ old('emergency_contact_phone',$employee->emergency_contact_phone ?? '') }}"></div>
+            <div class="col-12 mb-0"><label class="form-label">Alamat Kontak Darurat</label><textarea name="emergency_contact_address" rows="2" class="form-control">{{ old('emergency_contact_address',$employee->emergency_contact_address ?? '') }}</textarea></div>
+        </div>
+    </div>
+</div>
+<div class="card mt-4">
 
     <div class="card-header">
 
@@ -667,7 +688,13 @@
 
             </div>
 
-            {{-- Uang Makan --}}
+
+            {{-- Tunjangan Tetap untuk dasar upah BPJS --}}
+            <div class="col-md-3 mb-3">
+                <label class="form-label">Tunjangan Tetap <small class="text-muted">(Dasar BPJS)</small></label>
+                <input type="text" name="fixed_allowance" class="form-control" inputmode="numeric" data-rupiah="true" value="{{ old('fixed_allowance',$employee->fixed_allowance ?? 0) }}">
+                <small class="text-muted">Hanya komponen tetap yang masuk dasar perhitungan BPJS.</small>
+            </div>            {{-- Uang Makan --}}
             <div class="col-md-3 mb-3">
 
                 <label class="form-label">
@@ -907,7 +934,8 @@ document.addEventListener('DOMContentLoaded', function () {
         'input[name="basic_salary"],\
          input[name="meal_allowance"],\
          input[name="transport_allowance"],\
-         input[name="position_allowance"]'
+         input[name="position_allowance"],\
+         input[name="fixed_allowance"]'
     ).forEach(function(el){
 
         el.addEventListener('focus',function(){

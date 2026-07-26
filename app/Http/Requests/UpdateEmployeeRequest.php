@@ -10,7 +10,7 @@ class UpdateEmployeeRequest extends FormRequest
     /** Nominal rupiah boleh diketik dengan titik ribuan, lalu dinormalisasi. */
     protected function prepareForValidation(): void
     {
-        $money = ['basic_salary', 'meal_allowance', 'transport_allowance', 'position_allowance'];
+        $money = ['basic_salary', 'fixed_allowance', 'meal_allowance', 'transport_allowance', 'position_allowance'];
         $this->merge(collect($money)->mapWithKeys(fn (string $key) => [$key => $this->filled($key)
             ? preg_replace('/[^0-9]/', '', (string) $this->input($key))
             : null])->all());
@@ -102,6 +102,19 @@ class UpdateEmployeeRequest extends FormRequest
             'birth_place' => 'nullable|string|max:100',
 
             'birth_date' => 'nullable|date',
+
+            // Alamat lengkap dipakai pada profil, kontrak, dan kesiapan BPJS.
+            'address' => 'nullable|string|max:1000',
+            'domicile_address' => 'nullable|string|max:1000',
+            'province' => 'nullable|string|max:100',
+            'city' => 'nullable|string|max:100',
+            'district' => 'nullable|string|max:100',
+            'village' => 'nullable|string|max:100',
+            'postal_code' => 'nullable|string|max:20',
+            'emergency_contact_name' => 'nullable|string|max:255',
+            'emergency_contact_relation' => 'nullable|string|max:100',
+            'emergency_contact_phone' => 'nullable|string|max:50',
+            'emergency_contact_address' => 'nullable|string|max:1000',
 
             /*
             |--------------------------------------------------------------------------

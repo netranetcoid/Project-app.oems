@@ -100,6 +100,26 @@ class MobileReleaseCenterController extends Controller
         return back()->with('success', 'Rilis dipublikasikan untuk aplikasi OvallHR.');
     }
 
+    /** Hapus draft atau rilis lama; APK aktif selalu dipertahankan. */
+    public function destroy(MobileAppRelease $release): RedirectResponse
+    {
+        $this->company($release);
+        $currentPublished = MobileAppRelease::forCompany((int) session('company_id'))
+            ->where('platform', 'android')->where('status', 'published')
+            ->latest('version_code')->first();
+        if ($release->status === 'published' && $currentPublished?->is($release)) {
+            return back()->withErrors(['release' => 'Rilis yang sedang aktif tidak dapat dihapus. Publikasikan versi lebih baru terlebih dahulu.']);
+        }
+
+        $path = (string) parse_url((string) $release->download_url, PHP_URL_PATH);
+        $storedPath = ltrim((string) str_replace('/storage/', '', $path), '/');
+        if (str_starts_with($storedPath, 'mobile-releases/')) {
+            Storage::disk('public')->delete($storedPath);
+        }
+        $release->delete();
+
+        return back()->with('success', 'Riwayat rilis dan file APK terkait berhasil dihapus.');
+    }
     public function saveFeature(Request $request): RedirectResponse
     {
         $data = $request->validate([

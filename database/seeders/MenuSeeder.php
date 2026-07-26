@@ -138,6 +138,8 @@ class MenuSeeder extends Seeder
         $this->child($modules['kpi'] ?? null, $hr, 'hr-kpi', 'KPI & Bonus', 'hr.kpi.index', 'kpi.view', 7, 'ri ri-line-chart-line');
         $this->child($modules['project'] ?? null, $hr, 'hr-operations', 'Dinas & Motor Operasional', 'hr.operations.index', 'business-trip.view', 8, 'ri ri-road-map-line');
         $this->child($modules['employee'] ?? null, $hr, 'bpjs-readiness', 'BPJS & Kepatuhan', 'hr.bpjs-readiness.index', 'bpjs-registration.view', 9, 'ri ri-shield-check-line');
+        // Laporan hanya membaca data company aktif dan memerlukan report.view.
+        $this->child($modules['payroll'] ?? null, $hr, 'hr-compliance-report', 'Laporan Kepatuhan', 'hr.reports.compliance.index', 'report.view', 10, 'ri ri-file-chart-line');
 
         foreach ([
             ['isp-ticketing', 'Ticket & SLA', 'ri ri-customer-service-2-line'],
@@ -160,6 +162,8 @@ class MenuSeeder extends Seeder
             ]);
         }
 
+        $this->child($modules['setting'] ?? null, $system, 'settings-hub', 'Pengaturan', 'settings.hub.index', 'dashboard.view', 1, 'ri ri-settings-3-line');
+        $this->child($modules['setting'] ?? null, $system, 'company-profile', 'Profil Perusahaan', 'settings.company-profile.index', 'company.view', 2, 'ri ri-building-line');
         $this->child($modules['setting'] ?? null, $system, 'user-access', 'Akses Pengguna', 'settings.user-access.index', 'users.view', 1, 'ri ri-user-settings-line');
         $this->child($modules['setting'] ?? null, $system, 'role-permission', 'Role & Permission', 'settings.role-permission.index', 'roles.view', 2, 'ri ri-shield-keyhole-line');
         $this->child($modules['setting'] ?? null, $system, 'integration-center', 'Integrasi, Audit & Health', 'settings.integrations.index', 'integration.view', 3, 'ri ri-shield-check-line');

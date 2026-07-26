@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Setting;
 
 use App\Http\Controllers\Controller;
 use App\Models\BpjsSetting;
+use App\Models\Employee;
 use App\Services\Payroll\PayrollCalculationService;
+use App\Services\Payroll\BpjsCompanySummaryService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -13,17 +15,23 @@ use Illuminate\View\View;
 /** Pengaturan dan simulasi BPJS; perhitungan dipusatkan pada service payroll. */
 class BpjsCalculationController extends Controller
 {
-    public function __construct(private PayrollCalculationService $calculator)
-    {
+    public function __construct(
+        private PayrollCalculationService $calculator,
+        private BpjsCompanySummaryService $summary,
+    ) {
     }
 
     public function index(): View
     {
         $companyId = (int) session('company_id');
+        $setting = $this->calculator->settingForCompany($companyId);
 
         return view('setting.bpjs-calculation.index', [
-            'setting' => $this->calculator->settingForCompany($companyId),
+            'setting' => $setting,
             'riskOptions' => BpjsSetting::riskOptions(),
+            // Rekap selalu dihitung dari gaji/tunjangan dan checklist terkini,
+            // bukan mengambil angka stale dari slip periode sebelumnya.
+            'companySummary' => $this->summary->forCompany($companyId, $setting),
         ]);
     }
 
@@ -68,6 +76,31 @@ class BpjsCalculationController extends Controller
         return back()->withInput()->with('bpjs_preview', [...$calculation, ...$summary]);
     }
 
+    /** Update checklist kepesertaan dan dasar upah tanpa mengubah slip historis. */
+    public function updateEmployee(Request $request, Employee $employee): RedirectResponse
+    {
+        abort_if((int) $employee->company_id !== (int) session('company_id'), 403);
+        $this->normalizeRupiah($request, ['basic_salary', 'fixed_allowance']);
+        $data = $request->validate([
+            'basic_salary' => ['required', 'numeric', 'min:0'],
+            'fixed_allowance' => ['nullable', 'numeric', 'min:0'],
+            'bpjs_kesehatan_active' => ['nullable', 'boolean'],
+            'bpjs_ketenagakerjaan_active' => ['nullable', 'boolean'],
+            'bpjs_jkk_risk_code' => ['nullable', Rule::in(array_keys(BpjsSetting::riskOptions()))],
+            'bpjs_effective_date' => ['nullable', 'date'],
+        ]);
+
+        $employee->forceFill([
+            'basic_salary' => $data['basic_salary'],
+            'fixed_allowance' => $data['fixed_allowance'] ?? 0,
+            'is_bpjs_kesehatan_active' => $request->boolean('bpjs_kesehatan_active'),
+            'is_bpjs_ketenagakerjaan_active' => $request->boolean('bpjs_ketenagakerjaan_active'),
+            'bpjs_jkk_risk_code' => $data['bpjs_jkk_risk_code'] ?: null,
+            'bpjs_effective_date' => $data['bpjs_effective_date'] ?? null,
+        ])->save();
+
+        return back()->with('success', "Kepesertaan BPJS {$employee->name} dan dasar upahnya diperbarui.");
+    }
     private function validatedSettings(Request $request): array
     {
         return $request->validate([

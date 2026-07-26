@@ -53,8 +53,13 @@ Route::middleware([
     'permission.company.context',
 ])->group(function () {
 
+    // Akses Pegawai dipisahkan per aksi; tidak cukup hanya menyembunyikan menu.
     Route::resource('employees', EmployeeController::class)
-    ->names('employees');
+        ->middlewareFor(['index', 'show'], 'permission:employees.view')
+        ->middlewareFor(['create', 'store'], 'permission:employees.create')
+        ->middlewareFor(['edit', 'update'], 'permission:employees.update')
+        ->middlewareFor('destroy', 'permission:employees.delete')
+        ->names('employees');
 
     /* Dokumen identitas pegawai disimpan privat dan tidak memakai storage URL. */
     Route::get('/employees/{employee}/documents', [\App\Http\Controllers\Master\EmployeeDocumentController::class, 'index'])
@@ -139,6 +144,8 @@ Route::middleware([
       ->middleware('permission:mobile-release.manage')->name('mobile-releases.store');
     Route::post('/mobile-releases/{release}/publish', [\App\Http\Controllers\Setting\MobileReleaseCenterController::class, 'publish'])
       ->middleware('permission:mobile-release.manage')->name('mobile-releases.publish');
+    Route::delete('/mobile-releases/{release}', [\App\Http\Controllers\Setting\MobileReleaseCenterController::class, 'destroy'])
+      ->middleware('permission:mobile-release.manage')->name('mobile-releases.destroy');
     Route::post('/mobile-features', [\App\Http\Controllers\Setting\MobileReleaseCenterController::class, 'saveFeature'])
       ->middleware('permission:mobile-release.manage')->name('mobile-features.store');
     Route::post('/mobile-features/{feature}/toggle', [\App\Http\Controllers\Setting\MobileReleaseCenterController::class, 'toggleFeature'])
@@ -234,6 +241,9 @@ Route::middleware([
     Route::post('/bpjs-calculation/preview', [\App\Http\Controllers\Setting\BpjsCalculationController::class, 'preview'])
       ->middleware('permission:bpjs-calculation.view')
       ->name('bpjs-calculation.preview');
+    Route::put('/bpjs-calculation/employees/{employee}', [\App\Http\Controllers\Setting\BpjsCalculationController::class, 'updateEmployee'])
+      ->middleware('permission:bpjs-calculation.manage')
+      ->name('bpjs-calculation.employees.update');
   });
 
   /*
@@ -662,3 +672,12 @@ Route::prefix('hr')
 
     });
 });
+
+/* Ringkasan kepatuhan dipisahkan dari payroll agar tidak mengubah perhitungan. */
+Route::middleware(['auth', 'company.selected', 'permission.company.context'])->get(
+  '/hr/reports/compliance',
+  [\App\Http\Controllers\HR\ComplianceReportController::class, 'index']
+)->middleware('permission:report.view')->name('hr.reports.compliance.index');
+Route::middleware(['auth', 'company.selected', 'permission.company.context'])->get('/settings', [\App\Http\Controllers\Setting\SettingsHubController::class, 'index'])->middleware('permission:dashboard.view')->name('settings.hub.index');
+Route::middleware(['auth', 'company.selected', 'permission.company.context'])->get('/settings/company-profile', [\App\Http\Controllers\Setting\CompanyProfileController::class, 'index'])->middleware('permission:company.view')->name('settings.company-profile.index');
+Route::middleware(['auth', 'company.selected', 'permission.company.context'])->put('/settings/company-profile', [\App\Http\Controllers\Setting\CompanyProfileController::class, 'update'])->middleware('permission:company.update')->name('settings.company-profile.update');

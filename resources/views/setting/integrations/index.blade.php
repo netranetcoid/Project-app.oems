@@ -8,7 +8,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
   <div>
     <h4 class="mb-1">Integrasi & Audit Sistem</h4>
-    <p class="text-muted mb-0">Pusat dummy AppBill, antrean aman, audit aktivitas, dan kesehatan AppOEMS.</p>
+    <p class="text-muted mb-0">Pusat integrasi AppBill live, audit aktivitas, dan kesehatan AppOEMS. Outbox diproses otomatis oleh scheduler.</p>
   </div>
   <div class="d-flex flex-wrap gap-2">
     @can('health.view')
@@ -16,11 +16,7 @@
         <button class="btn btn-label-info"><i class="ri ri-pulse-line me-1"></i>Periksa Sistem</button>
       </form>
     @endcan
-    @can('integration.dispatch')
-      <form method="POST" action="{{ route('settings.integrations.dispatch') }}">@csrf
-        <button class="btn btn-primary"><i class="ri ri-play-circle-line me-1"></i>Proses Antrean</button>
-      </form>
-    @endcan
+
   </div>
 </div>
 
@@ -29,7 +25,7 @@
 @if($errors->any())<div class="alert alert-danger">{{ $errors->first() }}</div>@endif
 @if(session('appbill_revealed_credentials'))
   <div class="alert alert-warning">
-    <div class="fw-bold mb-2">Simpan kredensial AppBill sekarang — hanya tampil sekali.</div>
+    <div class="fw-bold mb-2">Simpan kredensial AppBill sekarang â€” hanya tampil sekali.</div>
     <div class="mb-1">API token: <code class="text-break">{{ data_get(session('appbill_revealed_credentials'),'api_token') }}</code></div>
     <div>HMAC secret: <code class="text-break">{{ data_get(session('appbill_revealed_credentials'),'hmac_secret') }}</code></div>
     <div class="small mt-2">Kirim melalui kanal aman ke pengembang AppBill; jangan simpan di chat, screenshot, atau dokumen publik.</div>
@@ -39,7 +35,7 @@
 @if($connection->mode === 'live')
   <div class="alert alert-success d-flex align-items-start gap-3">
     <i class="ri ri-broadcast-line fs-4"></i>
-    <div><strong>Mode AppBill live aktif.</strong><br><span class="small">Gunakan Uji Koneksi Live untuk handshake langsung tanpa antrean. Pengiriman absensi/payroll tetap mengikuti approval dan outbox audit.</span></div>
+    <div><strong>Mode AppBill live aktif.</strong><br><span class="small">Pengiriman data berjalan otomatis melalui scheduler setiap menit. Uji Koneksi Live hanya untuk handshake teknis tanpa mengirim absensi atau payroll.</span></div>
   </div>
 @else
   <div class="alert alert-primary d-flex align-items-start gap-3">
@@ -75,7 +71,7 @@
           @csrf @method('PUT')
           <div class="col-12">
             <label class="form-label">Provider</label>
-            <input class="form-control" value="AppBill — Dummy Adapter" disabled>
+            <input class="form-control" value="AppBill â€” Dummy Adapter" disabled>
           </div>
           <div class="col-md-6">
             <label class="form-label">Mode koneksi</label>
@@ -182,9 +178,7 @@
             <button class="btn btn-success w-100 mb-2"><i class="ri ri-links-line me-1"></i>Uji Koneksi Live Sekarang</button>
           </form>
         @endif
-        <form method="POST" action="{{ route('settings.integrations.test') }}">@csrf
-          <button class="btn btn-label-success w-100"><i class="ri ri-flask-line me-1"></i>Kirim Event Tes Dummy</button>
-        </form>
+
         @endcan
       </div>
     </div>
@@ -204,7 +198,7 @@
                   <span class="badge bg-label-{{ $healthColor }}">{{ strtoupper($check['status']) }}</span>
                 </div>
                 <div class="small text-muted">{{ $check['message'] }}</div>
-                @if(!empty($check['metrics']))<div class="small mt-2">{{ collect($check['metrics'])->map(fn($v,$k)=>"$k: ".(is_bool($v)?($v?'ya':'tidak'):$v))->implode(' • ') }}</div>@endif
+                @if(!empty($check['metrics']))<div class="small mt-2">{{ collect($check['metrics'])->map(fn($v,$k)=>"$k: ".(is_bool($v)?($v?'ya':'tidak'):$v))->implode(' â€¢ ') }}</div>@endif
               </div>
             </div>
           @endforeach
@@ -226,10 +220,10 @@
           <td><code>{{ Illuminate\Support\Str::limit($event->event_id,18) }}</code><div class="small text-muted">{{ Illuminate\Support\Str::limit($event->idempotency_key,42) }}</div></td>
           <td>{{ $event->event_type }}<div class="small text-muted">{{ $event->aggregate_type ? class_basename($event->aggregate_type).' #'.$event->aggregate_id : '-' }}</div></td>
           <td><span class="badge bg-label-{{ $eventColor }}">{{ strtoupper($event->status) }}</span></td>
-          <td>{{ $event->attempts }} / {{ $event->connection?->retry_limit ?? 0 }}@if($event->retry_category)<div class="small text-muted">{{ str($event->retry_category)->replace('_',' ')->title() }}@if($event->next_retry_at) · ulang {{ $event->next_retry_at->format('H:i:s') }}@endif</div>@endif</td>
+          <td>{{ $event->attempts }} / {{ $event->connection?->retry_limit ?? 0 }}@if($event->retry_category)<div class="small text-muted">{{ str($event->retry_category)->replace('_',' ')->title() }}@if($event->next_retry_at) Â· ulang {{ $event->next_retry_at->format('H:i:s') }}@endif</div>@endif</td>
           <td><span class="small">{{ data_get($event->response_summary,'code',$event->last_error_code ?: ($event->last_error ?: '-')) }}</span></td>
           <td class="small">Buat: {{ $event->created_at?->format('d/m/Y H:i:s') }}@if($event->last_attempt_at)<br>Terakhir: {{ $event->last_attempt_at->format('d/m/Y H:i:s') }}@endif</td>
-          <td>@can('integration.dispatch') @if($event->status !== 'sent')<form method="POST" action="{{ route('settings.integrations.retry',$event) }}">@csrf<button class="btn btn-sm btn-label-primary">Ulangi</button></form>@endif @endcan</td>
+          <td><span class="small text-muted">{{ $event->status === 'sent' ? 'Terkirim' : 'Otomatis oleh scheduler' }}</span></td>
         </tr>
       @empty<tr><td colspan="7" class="text-center text-muted py-5">Belum ada event integrasi.</td></tr>@endforelse
       </tbody>
