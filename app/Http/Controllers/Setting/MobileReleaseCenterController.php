@@ -212,6 +212,8 @@ class MobileReleaseCenterController extends Controller
             'tasks' => ['name' => 'Tugas', 'description' => 'Daftar tugas dan progres pekerjaan pegawai.', 'icon' => 'ti ti-list-check'],
             'reimbursement' => ['name' => 'Klaim', 'description' => 'Pengajuan klaim atau reimbursement pegawai.', 'icon' => 'ti ti-file-invoice'],
             'announcements' => ['name' => 'Info', 'description' => 'Pengumuman perusahaan pada aplikasi.', 'icon' => 'ti ti-speakerphone'],
+            'cash_advance' => ['name' => 'Kasbon', 'description' => 'Pengajuan dan riwayat kasbon pegawai.', 'icon' => 'ti ti-wallet'],
+            'profile' => ['name' => 'Profil & Akun', 'description' => 'Profil pribadi, kartu ID, kontak, dan izin aplikasi.', 'icon' => 'ti ti-user-circle'],
         ];
     }
 

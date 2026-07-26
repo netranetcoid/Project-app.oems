@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use App\Http\Controllers\Api\AppBillAttendanceController;
 use App\Http\Controllers\Api\AppBillAttendanceEventController;
@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\EmployeeHomeController;
 use App\Http\Controllers\Api\EmployeeKpiController;
 use App\Http\Controllers\Api\EmployeeRequestController;
 use App\Http\Controllers\Api\EmployeeScheduleController;
+use App\Http\Controllers\Api\EmployeeSelfServiceProfileController;
 use App\Http\Controllers\Api\EmployeeTaskController;
 use App\Http\Controllers\Api\EmployeeWorkTrackingController;
 use App\Http\Controllers\Api\MobileReleaseController;
@@ -66,6 +67,9 @@ Route::middleware(['auth:sanctum', 'mobile.password.changed'])->group(function (
     Route::post('/work-tracking/points', [EmployeeWorkTrackingController::class, 'store'])->middleware('throttle:60,1');
     Route::get('/work-tracking/history', [EmployeeWorkTrackingController::class, 'history']);
     Route::get('/employee/me/home', EmployeeHomeController::class);
+    // Profil mandiri: hanya data employee yang terhubung ke token login.
+    Route::get('/employee/me/profile', [EmployeeSelfServiceProfileController::class, 'show']);
+    Route::put('/employee/me/profile/contact', [EmployeeSelfServiceProfileController::class, 'updateContact']);
     Route::get('/employee/me/schedule', EmployeeScheduleController::class);
     Route::get('/employee/me/kpi', EmployeeKpiController::class);
     Route::get('/employee/me/tasks', [EmployeeTaskController::class, 'index']);
