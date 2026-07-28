@@ -229,7 +229,7 @@ class AttendanceController extends Controller
             'accuracy' => ['nullable', 'numeric', 'min:0', 'max:1000'],
             'occurred_at' => ['nullable', 'date'],
             'device_id' => ['nullable', 'string', 'max:120'],
-            'note' => ['nullable', 'string', 'max:2000'],
+            'note' => ['required', 'string', 'min:3', 'max:2000'],
             'selfie' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
             'photo' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:4096'],
         ]);

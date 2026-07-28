@@ -12,7 +12,7 @@ class UpdateEmployeeRequest extends FormRequest
     {
         $money = ['basic_salary', 'fixed_allowance', 'meal_allowance', 'transport_allowance', 'position_allowance'];
         $this->merge(collect($money)->mapWithKeys(fn (string $key) => [$key => $this->filled($key)
-            ? preg_replace('/[^0-9]/', '', (string) $this->input($key))
+            ? \App\Support\RupiahInput::integer($this->input($key))
             : null])->all());
     }
 

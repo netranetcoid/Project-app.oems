@@ -68,7 +68,7 @@ class PositionController extends Controller
         // Format input Indonesia, misalnya 1.500.000, dipastikan valid juga
         // saat form dikirim dari browser yang mematikan JavaScript.
         $request->merge(collect(['default_basic_salary', 'default_allowance', 'default_kpi_incentive_max'])
-            ->mapWithKeys(fn (string $key) => [$key => $request->filled($key) ? preg_replace('/[^0-9]/', '', (string) $request->input($key)) : null])
+            ->mapWithKeys(fn (string $key) => [$key => $request->filled($key) ? \App\Support\RupiahInput::integer($request->input($key)) : null])
             ->all());
         $data = $request->validate([
             'branch_id' => ['nullable', Rule::exists('branches', 'id')->where('company_id', $companyId)],

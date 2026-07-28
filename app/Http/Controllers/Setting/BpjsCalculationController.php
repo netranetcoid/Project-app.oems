@@ -127,7 +127,7 @@ class BpjsCalculationController extends Controller
     private function normalizeRupiah(Request $request, array $fields): void
     {
         $request->merge(collect($fields)->mapWithKeys(fn (string $field) => [$field => $request->filled($field)
-            ? preg_replace('/[^0-9]/', '', (string) $request->input($field))
+            ? \App\Support\RupiahInput::integer($request->input($field))
             : null])->all());
     }
 }
