@@ -31,7 +31,7 @@
   })->values();
 @endphp
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="{{ asset('vendor/leaflet/leaflet.css') }}">
 <style>
   .tracking-detail { min-height: 560px; background: #f8fafc; border-radius: .5rem; padding: 1.25rem; }
   .tracking-motor { width: 52px; height: 42px; filter: drop-shadow(0 4px 5px rgba(15, 23, 42, .35)); }
@@ -85,7 +85,7 @@
 @endsection
 
 @section('page-script')
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ asset('vendor/leaflet/leaflet.js') }}"></script>
 <script>
   const points = @json($mapPoints);
   const map = L.map('workTrackingMap').setView([-6.6127551, 106.7554874], 12);
