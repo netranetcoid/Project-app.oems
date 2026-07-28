@@ -2,7 +2,10 @@
 
 namespace App\Support;
 
-/** Normalisasi nilai uang dari UI Indonesia tanpa menggandakan nol desimal DB. */
+/**
+ * Mengubah format nominal Indonesia maupun format database menjadi bilangan
+ * rupiah utuh. Tidak memakai float agar nilai gaji besar tidak berubah.
+ */
 final class RupiahInput
 {
     public static function integer(mixed $value): ?string
@@ -10,11 +13,18 @@ final class RupiahInput
         $text = trim((string) $value);
         if ($text === '') return null;
 
-        // Nilai dari database/input hidden: 1500000.00 -> 1500000.
-        if (preg_match('/^\\d+\\.\\d{1,2}$/', $text)) return explode('.', $text, 2)[0];
+        // 3,000,000.00 -> 3000000
+        if (preg_match('/^\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?$/', $text)) {
+            return str_replace(',', '', preg_replace('/\.\d{1,2}$/', '', $text));
+        }
+        // 3.000.000,00 -> 3000000
+        if (preg_match('/^\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?$/', $text)) {
+            return str_replace('.', '', preg_replace('/,\d{1,2}$/', '', $text));
+        }
+        // 3000000.00 atau 3000000,00 -> 3000000
+        if (preg_match('/^(\d+)[.,]\d{1,2}$/', $text, $matches)) return $matches[1];
 
-        // Nilai Indonesia: 1.500.000 / Rp 1.500.000 -> 1500000.
-        $digits = preg_replace('/\\D/', '', $text);
+        $digits = preg_replace('/\D/', '', $text);
         return $digits === '' ? null : $digits;
     }
 }
