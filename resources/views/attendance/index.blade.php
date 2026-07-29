@@ -55,7 +55,7 @@
 
 <div class="card">
   <div class="card-header d-flex flex-column flex-lg-row justify-content-between gap-3"><div><h5 class="mb-1">Rekap presensi</h5><p class="mb-0 text-muted">Bukti selfie/GPS tersimpan sesuai retention. Review hanya mengubah status approval, bukan menghapus rekam presensi.</p></div><div class="d-flex gap-2 flex-wrap">@can('attendance.shift.view')<a class="btn btn-label-primary btn-sm" href="{{ route('attendance.shifts.index') }}">Shift</a>@endcan @can('attendance.shift.assignment.view')<a class="btn btn-label-primary btn-sm" href="{{ route('attendance.shift-assignments.index') }}">Jadwal</a>@endcan @can('attendance.update')<a class="btn btn-label-primary btn-sm" href="{{ route('hr.settings.index') }}">Aturan GPS</a>@endcan</div></div>
-  <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Pegawai / Site</th><th>Shift</th><th>Masuk / Pulang</th><th>Durasi / Telat</th><th>GPS & Bukti</th><th>Status</th><th class="text-end">Aksi HR</th></tr></thead><tbody>
+  <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Pegawai / Site</th><th>Shift</th><th>Masuk / Pulang</th><th>Durasi / Telat</th><th>GPS & Bukti</th><th>Catatan & audit</th><th>Status</th><th class="text-end">Aksi HR</th></tr></thead><tbody>
     @forelse($records as $record)
       @php
         $approval = $record->approval_status ?: 'approved';
@@ -64,16 +64,17 @@
         $hours = sprintf('%02d:%02d', intdiv((int) $record->work_minutes, 60), ((int) $record->work_minutes % 60));
       @endphp
       <tr>
-        <td><strong>{{ $record->employee?->name ?? 'Pegawai tidak ditemukan' }}</strong><div class="small text-muted">{{ $record->employee?->employee_no ?? '-' }} Â· {{ $record->employee?->branch?->name ?? 'Tanpa site' }}</div></td>
+        <td>@if($record->employee)<a class="fw-semibold text-body" href="{{ route('employees.show', ['employee' => $record->employee_id, 'tab' => 'attendance']) }}">{{ $record->employee->name }}</a><div class="small text-muted">{{ $record->employee->employee_no ?? '-' }} Â· {{ $record->employee?->branch?->name ?? 'Tanpa site' }}</div><a class="small" href="{{ route('employees.show', ['employee' => $record->employee_id, 'tab' => 'attendance']) }}">Lihat riwayat pegawai</a>@else<strong>Pegawai tidak ditemukan</strong>@endif</td>
         <td>{{ $record->shift?->name ?? 'Tanpa shift' }}<div class="small text-muted">{{ $record->shift?->clock_in_time ? substr($record->shift->clock_in_time,0,5) : '-' }}â€“{{ $record->shift?->clock_out_time ? substr($record->shift->clock_out_time,0,5) : '-' }}</div></td>
         <td><strong>{{ $record->clock_in_at?->format('H:i') ?? '-' }}</strong><div class="small text-muted">Pulang: {{ $record->clock_out_at?->format('H:i') ?? 'Belum tercatat' }}</div></td>
         <td>{{ $hours }}<div class="small {{ $record->late_minutes > 0 ? 'text-warning' : 'text-muted' }}">{{ $record->late_minutes > 0 ? $record->late_minutes . ' menit terlambat' : 'Tepat waktu' }}</div></td>
         <td><div class="small">@if($record->geofence_validated)<span class="text-success"><i class="ti ti-map-pin-check"></i> Valid {{ number_format((float) $record->geofence_distance_meters,0) }} m</span>@else<span class="text-warning"><i class="ti ti-map-pin-question"></i> Belum tervalidasi</span>@endif</div><div class="d-flex gap-1 mt-1">@if($record->in_photo)<a class="btn btn-xs btn-label-primary" target="_blank" href="{{ route('attendance.records.proof', [$record, 'in']) }}">Selfie masuk</a>@endif @if($record->out_photo)<a class="btn btn-xs btn-label-primary" target="_blank" href="{{ route('attendance.records.proof', [$record, 'out']) }}">Selfie pulang</a>@endif</div></td>
+        <td><div class="small fw-semibold">{{ $record->notes ?: 'Tidak ada catatan pegawai.' }}</div>@if($record->change_reason)<div class="small text-muted mt-1">Audit HR: {{ $record->change_reason }}</div>@endif @if($record->rejection_reason)<div class="small text-danger mt-1">Alasan tolak: {{ $record->rejection_reason }}</div>@endif</td>
         <td><span class="badge bg-label-{{ $attendanceColor }}">{{ ucfirst($record->status) }}</span><div class="mt-1"><span class="badge bg-label-{{ $approvalColor }}">{{ ucfirst($approval) }}</span></div>@if($record->rejection_reason)<div class="small text-danger mt-1">{{ $record->rejection_reason }}</div>@endif</td>
         <td class="text-end">@can('attendance.update')<div class="d-inline-flex gap-1">@if($approval !== 'approved')<form method="POST" action="{{ route('attendance.records.approve', $record) }}" onsubmit="return confirm('Setujui presensi ini?')">@csrf<button class="btn btn-sm btn-label-success">Setujui</button></form>@endif<form method="POST" action="{{ route('attendance.records.reject', $record) }}" onsubmit="const reason=window.prompt('Alasan penolakan presensi:'); if (!reason) return false; this.querySelector('[name=reason]').value=reason; return true;">@csrf<input type="hidden" name="reason"><button class="btn btn-sm btn-label-danger">Tolak</button></form></div>@endcan</td>
       </tr>
     @empty
-      <tr><td colspan="7" class="text-center text-muted py-5"><i class="ti ti-calendar-off fs-2 d-block mb-2"></i>Belum ada data presensi pada filter ini.</td></tr>
+      <tr><td colspan="8" class="text-center text-muted py-5"><i class="ti ti-calendar-off fs-2 d-block mb-2"></i>Belum ada data presensi pada filter ini.</td></tr>
     @endforelse
   </tbody></table></div>
   @if($records->hasPages())<div class="card-body">{{ $records->links() }}</div>@endif
