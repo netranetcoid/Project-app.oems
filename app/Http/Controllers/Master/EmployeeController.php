@@ -16,6 +16,8 @@ use App\Models\Position;
 use App\Models\EmployeeRequest;
 use App\Models\EmployeeTask;
 use App\Services\Employee\EmployeeService;
+use App\Services\Employee\EmployeeUserService;
+use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
@@ -296,6 +298,39 @@ public function show(
      * ==========================================================
      */
 
+
+    /**
+     * HR membuat akun OvallHR yang belum ada, atau mengembalikan password
+     * sementara pegawai menjadi 12345678 untuk kasus lupa password.
+     */
+    public function resetMobileAccount(Request $request, Employee $employee, EmployeeUserService $users): RedirectResponse
+    {
+        abort_unless((int) $employee->company_id === (int) session('company_id'), 403);
+
+        if (! filled($employee->email)) {
+            return back()->withErrors(['email' => 'Email pegawai wajib diisi sebelum akun OvallHR dapat dibuat.']);
+        }
+
+        $user = $employee->user;
+        if ($user) {
+            abort_unless((int) $user->company_id === (int) $employee->company_id, 403);
+            $users->resetPassword($user);
+        } else {
+            $user = $users->create([
+                'company_id' => $employee->company_id,
+                'branch_id' => $employee->branch_id,
+                'division_id' => $employee->division_id,
+                'position_id' => $employee->position_id,
+                'name' => $employee->full_name,
+                'employee_no' => $employee->employee_code,
+                'email' => $employee->email,
+                'phone' => $employee->phone,
+            ]);
+            $employee->update(['user_id' => $user->id]);
+        }
+
+        return back()->with('success', 'Akun OvallHR siap. Login memakai email atau username pegawai dengan password sementara 12345678. Pegawai wajib mengganti password setelah login.');
+    }
     public function destroy(
         Employee $employee
     ): RedirectResponse {

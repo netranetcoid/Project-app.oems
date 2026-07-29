@@ -61,6 +61,11 @@ Route::middleware([
         ->middlewareFor('destroy', 'permission:employees.delete')
         ->names('employees');
 
+  // Reset akun khusus dilakukan HR dan selalu memakai scope company aktif.
+  Route::post('/employees/{employee}/mobile-account/reset', [EmployeeController::class, 'resetMobileAccount'])
+    ->middleware('permission:employees.update')
+    ->name('employees.mobile-account.reset');
+
     /* Dokumen identitas pegawai disimpan privat dan tidak memakai storage URL. */
     Route::get('/employees/{employee}/documents', [\App\Http\Controllers\Master\EmployeeDocumentController::class, 'index'])
       ->middleware('permission:employee-document.view')->name('employees.documents.index');
