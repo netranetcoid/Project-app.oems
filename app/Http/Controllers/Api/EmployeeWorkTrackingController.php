@@ -61,7 +61,9 @@ class EmployeeWorkTrackingController extends Controller
             ->latest('captured_at')
             ->first();
 
-        if ($recent && $recent->captured_at->diffInSeconds($capturedAt) < 60) {
+        // Titik aktif disimpan maksimal satu kali per 20 detik. Interval ini
+        // cukup rapat untuk review rute tanpa membebani VPS atau database.
+        if ($recent && $recent->captured_at->diffInSeconds($capturedAt) < 20) {
             return response()->json(['data' => ['accepted' => false, 'reason' => 'too_soon']]);
         }
 
@@ -129,23 +131,31 @@ class EmployeeWorkTrackingController extends Controller
     /** @return array{0:?Attendance,1:?OvertimeAttendance,2:string,3:int|null} */
     private function activeSession($employee): array
     {
+        // Sesi hanya boleh diambil dari hari kerja lokal. Sesi lembur lama
+        // yang belum ditutup tidak boleh mengubah tracking masuk kerja hari ini.
+        $businessDate = now($employee->company?->timezone ?: 'Asia/Jakarta')->toDateString();
         $regular = Attendance::query()
             ->where('company_id', $employee->company_id)
             ->where('employee_id', $employee->id)
+            ->whereDate('date', $businessDate)
             ->whereNotNull('clock_in_at')
             ->whereNull('clock_out_at')
-            ->latest('id')
+            ->latest('clock_in_at')
             ->first();
         $overtime = OvertimeAttendance::query()
             ->where('company_id', $employee->company_id)
             ->where('employee_id', $employee->id)
+            ->whereDate('date', $businessDate)
             ->whereNotNull('clock_in_at')
             ->whereNull('clock_out_at')
-            ->latest('id')
+            ->latest('clock_in_at')
             ->first();
 
-        $mode = $overtime ? 'overtime' : 'regular';
-        $parentId = $overtime?->id ?: $regular?->id;
+        // Jika dua sesi hari ini sama-sama terbuka, titik mengikuti sesi yang
+        // paling baru dimulai. Ini menjaga status AppOEMS sama dengan OvallHR.
+        $useOvertime = $overtime && (! $regular || $overtime->clock_in_at->greaterThan($regular->clock_in_at));
+        $mode = $useOvertime ? 'overtime' : 'regular';
+        $parentId = $useOvertime ? $overtime?->id : $regular?->id;
 
         return [$regular, $overtime, $mode, $parentId];
     }

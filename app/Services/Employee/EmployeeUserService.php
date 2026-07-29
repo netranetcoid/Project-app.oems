@@ -15,49 +15,53 @@ class EmployeeUserService
 
     public function create(array $data): User
     {
-        return User::create([
+        $companyId = (int) ($data['company_id'] ?? session('company_id'));
+        $email = trim((string) ($data['email'] ?? ''));
 
-            'company_id' => session('company_id'),
+        if ($companyId <= 0 || $email === '') {
+            throw new \RuntimeException('Company dan email pegawai wajib ada sebelum akun OvallHR dibuat.');
+        }
 
+        // withTrashed mencegah email lama yang pernah dihapus membuat error unik.
+        $user = User::withTrashed()->where('email', $email)->first();
+        $isNew = ! $user;
+
+        if ($user && $user->company_id && (int) $user->company_id !== $companyId) {
+            throw new \RuntimeException('Email ini sudah dipakai akun pada perusahaan lain.');
+        }
+
+        $user ??= new User();
+        if ($user->trashed()) {
+            $user->restore();
+        }
+
+        $user->fill([
+            'company_id' => $companyId,
             'branch_id' => $data['branch_id'] ?? null,
-
             'division_id' => $data['division_id'] ?? null,
-
             'position_id' => $data['position_id'] ?? null,
-
-            // Tautkan akun mobile dengan master karyawan setelah employee
-            // berhasil dibuat dalam transaksi yang sama.
-            'employee_id' => $data['employee_id'] ?? null,
-
-            'name' => $data['name'],
-
-            // Default username adalah nomor pegawai/NIK sehingga karyawan
-            // tidak wajib mengingat email perusahaan untuk login OvallHR.
-            'username' => $data['username'] ?? $data['employee_no'] ?? $data['email'],
-
-            'email' => $data['email'],
-
+            'name' => $data['name'] ?? $data['full_name'] ?? $email,
+            'username' => $user->username ?: ($data['employee_no'] ?? $data['employee_code'] ?? $email),
+            'email' => $email,
             'phone' => $data['phone'] ?? null,
-
-            /*
-            |--------------------------------------------------------------------------
-            | Default Password
-            |--------------------------------------------------------------------------
-            */
-
-            'password' => Hash::make('12345678'),
-
             'status' => 'active',
-
             'is_active' => true,
-
             'is_locked' => false,
-
-            'is_super_admin' => false,
-
-            'is_owner' => false,
-
+            'locked_at' => null,
+            'is_super_admin' => (bool) $user->is_super_admin,
+            'is_owner' => (bool) $user->is_owner,
         ]);
+
+        if ($isNew) {
+            // Password awal tidak dicatat di log/email sumber. API akan
+            // memaksa pegawai menggantinya sebelum membuka menu operasional.
+            $user->password = Hash::make('12345678');
+            $user->password_changed_at = null;
+        }
+
+        $user->save();
+
+        return $user;
     }
 
     /*
@@ -72,20 +76,15 @@ class EmployeeUserService
             return;
         }
 
+        // Email pada master pegawai adalah email kontak dan boleh berbeda dari
+        // AppBill. Jangan mengganti email akun mobile otomatis: identitas
+        // tracking tetap memakai user_id + employee_id yang sudah terhubung.
         $user->update([
-
             'branch_id' => $data['branch_id'] ?? $user->branch_id,
-
             'division_id' => $data['division_id'] ?? $user->division_id,
-
             'position_id' => $data['position_id'] ?? $user->position_id,
-
-            'name' => $data['name'],
-
-            'email' => $data['email'],
-
+            'name' => $data['name'] ?? $user->name,
             'phone' => $data['phone'] ?? $user->phone,
-
         ]);
     }
         /*
@@ -103,7 +102,7 @@ class EmployeeUserService
 
             'password' => Hash::make($password),
 
-            'password_changed_at' => now(),
+            'password_changed_at' => null,
 
         ]);
 

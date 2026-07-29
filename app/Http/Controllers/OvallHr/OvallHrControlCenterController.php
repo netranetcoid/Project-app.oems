@@ -133,9 +133,10 @@ class OvallHrControlCenterController extends Controller
     {
         $companyId = (int) session('company_id');
         $employeeId = $request->integer('employee_id');
-        $date = $request->date('date')?->toDateString() ?: now()->toDateString();
         $company = Company::query()->findOrFail($companyId);
         $timezone = $company->timezone ?: 'Asia/Jakarta';
+        // Default tanggal mengikuti jam perusahaan, bukan jam UTC VPS.
+        $date = $request->date('date')?->toDateString() ?: now($timezone)->toDateString();
         $dayStart = \Carbon\Carbon::parse($date, $timezone)->startOfDay()->utc();
         $dayEnd = \Carbon\Carbon::parse($date, $timezone)->endOfDay()->utc();
         $employees = Employee::forCompany($companyId)->active()->orderBy('name')->get(['id','name','employee_no']);
@@ -154,9 +155,11 @@ class OvallHrControlCenterController extends Controller
             ->whereIn('employee_id', $tracks->pluck('employee_id')->unique())
             ->where('status', 'in_progress')->get()->keyBy('employee_id');
         $journeys = $this->workJourneys($tracks, $timezone);
+        // Browser HR menyegarkan peta hanya ketika ada sesi yang masih aktif.
+        $hasActiveJourneys = $journeys->contains(fn (array $journey): bool => $journey['is_active']);
 
         return view('ovallhr.control-center.work-tracking', compact(
-            'employees', 'tracks', 'journeys', 'activeTasks', 'employeeId', 'date', 'timezone',
+            'employees', 'tracks', 'journeys', 'activeTasks', 'employeeId', 'date', 'timezone', 'hasActiveJourneys',
         ));
     }
 
