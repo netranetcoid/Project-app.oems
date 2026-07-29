@@ -77,12 +77,35 @@ class AttendanceLocationPolicyController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
+        // Read the visible selector on the server as well as the hidden input.
+        // This makes Branch/Site and Divisi khusus safe even when an old browser
+        // did not refresh the hidden scope_id field.
         if ($data['scope_type'] === 'company') {
             $data['scope_id'] = null;
         } elseif ($data['scope_type'] === 'branch') {
-            abort_unless(Branch::query()->forCompany($companyId)->whereKey($data['scope_id'])->exists(), 422);
+            $data['scope_id'] = $request->integer('branch_scope_id') ?: $data['scope_id'];
+            if (! $data['scope_id']) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'scope_id' => ['Pilih Branch / Site terlebih dahulu.'],
+                ]);
+            }
+            if (! Branch::query()->forCompany($companyId)->whereKey($data['scope_id'])->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'scope_id' => ['Branch / Site tidak tersedia pada company aktif.'],
+                ]);
+            }
         } else {
-            abort_unless(Division::query()->forCompany($companyId)->whereKey($data['scope_id'])->exists(), 422);
+            $data['scope_id'] = $request->integer('division_scope_id') ?: $data['scope_id'];
+            if (! $data['scope_id']) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'scope_id' => ['Pilih Divisi khusus terlebih dahulu.'],
+                ]);
+            }
+            if (! Division::query()->forCompany($companyId)->whereKey($data['scope_id'])->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'scope_id' => ['Divisi tidak tersedia pada company aktif.'],
+                ]);
+            }
         }
 
         if ($data['mode'] === 'geofence' && (! isset($data['latitude'], $data['longitude'], $data['radius_meter']))) {
