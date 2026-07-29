@@ -133,6 +133,13 @@ class AttendanceController extends Controller
         return back()->with('success', 'Presensi ditolak dan alasan tersimpan di audit trail.');
     }
 
+    /** Timezone operasional yang sama dengan API OvallHR dan AppBill. */
+    private function businessTimezone(int $companyId): string
+    {
+        $timezone = (string) (Company::query()->find($companyId)?->timezone ?: 'Asia/Jakarta');
+
+        return in_array($timezone, timezone_identifiers_list(), true) ? $timezone : 'Asia/Jakarta';
+    }
     private function ensureCompany(Attendance $attendance): void
     {
         abort_unless((int) $attendance->company_id === (int) session('company_id'), 404);
