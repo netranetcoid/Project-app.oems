@@ -20,10 +20,10 @@
 <div class="row g-4">
   <div class="col-xl-4">
     <div class="card h-100"><div class="card-header"><h5 class="mb-1">Tambah Kebijakan Lokasi</h5><p class="mb-0 text-muted small">Satu policy aktif untuk satu scope. Ubah policy yang ada bila scope sudah terdaftar.</p></div><div class="card-body">
-      <form method="POST" action="{{ route('hr.attendance-locations.store') }}" class="row g-3">@csrf
+      <form id="attendanceLocationPolicyForm" method="POST" action="{{ route('hr.attendance-locations.store') }}" class="row g-3">@csrf
         <div class="col-12"><label class="form-label">Cakupan</label><select class="form-select" name="scope_type" id="scopeType" required><option value="company">Kantor Utama PT OSM</option><option value="branch">Branch / Site</option><option value="division">Divisi khusus</option></select></div>
-        <div class="col-12 d-none" id="scopeBranch"><label class="form-label">Pilih Branch / Site</label><select class="form-select" name="branch_scope_id"><option value="">Pilih site</option>@foreach($branches as $branch)<option value="{{ $branch->id }}">{{ $branch->name }} — {{ $branch->city ?: $branch->code }}</option>@endforeach</select></div>
-        <div class="col-12 d-none" id="scopeDivision"><label class="form-label">Pilih Divisi</label><select class="form-select" name="division_scope_id"><option value="">Pilih divisi</option>@foreach($divisions as $division)<option value="{{ $division->id }}">{{ $division->name }}</option>@endforeach</select></div>
+        <div class="col-12 d-none" id="scopeBranch"><label class="form-label">Pilih Branch / Site</label><select class="form-select" name="branch_scope_id" id="branchScopeId"><option value="">Pilih site</option>@foreach($branches as $branch)<option value="{{ $branch->id }}">{{ $branch->name }} — {{ $branch->city ?: $branch->code }}</option>@endforeach</select></div>
+        <div class="col-12 d-none" id="scopeDivision"><label class="form-label">Pilih Divisi</label><select class="form-select" name="division_scope_id" id="divisionScopeId"><option value="">Pilih divisi</option>@foreach($divisions as $division)<option value="{{ $division->id }}">{{ $division->name }}</option>@endforeach</select></div>
         <input type="hidden" name="scope_id" id="scopeId">
         <div class="col-12"><label class="form-label">Nama kebijakan</label><input class="form-control" name="name" required maxlength="120" placeholder="Contoh: Site Solo / Teknisi Lapangan"></div>
         <div class="col-12"><label class="form-label">Mode</label><select class="form-select" name="mode" id="locationMode"><option value="geofence">Geofence — wajib di radius titik</option><option value="anywhere">Bebas lokasi — tanpa titik kantor</option></select></div>
@@ -64,15 +64,33 @@
 <script>
   // Keeps the form clear: only the relevant selector is submitted as scope_id.
   const scopeType = document.getElementById('scopeType');
-  const branch = document.querySelector('[name="branch_scope_id"]');
-  const division = document.querySelector('[name="division_scope_id"]');
+  const branch = document.getElementById('branchScopeId');
+  const division = document.getElementById('divisionScopeId');
   const scopeId = document.getElementById('scopeId');
+  const locationPolicyForm = document.getElementById('attendanceLocationPolicyForm');
   const syncScope = () => {
-    document.getElementById('scopeBranch').classList.toggle('d-none', scopeType.value !== 'branch');
-    document.getElementById('scopeDivision').classList.toggle('d-none', scopeType.value !== 'division');
-    scopeId.value = scopeType.value === 'branch' ? branch.value : (scopeType.value === 'division' ? division.value : '');
+    const isBranch = scopeType.value === 'branch';
+    const isDivision = scopeType.value === 'division';
+    document.getElementById('scopeBranch').classList.toggle('d-none', !isBranch);
+    document.getElementById('scopeDivision').classList.toggle('d-none', !isDivision);
+    // Disabled fields are never posted. The selected visible dropdown and
+    // scope_id therefore always refer to exactly one scope.
+    branch.disabled = !isBranch;
+    division.disabled = !isDivision;
+    branch.required = isBranch;
+    division.required = isDivision;
+    scopeId.value = isBranch ? branch.value : (isDivision ? division.value : '');
   };
-  [scopeType, branch, division].forEach(item => item?.addEventListener('change', syncScope)); syncScope();
+  [scopeType, branch, division].forEach(item => item?.addEventListener('change', syncScope));
+  locationPolicyForm?.addEventListener('submit', (event) => {
+    syncScope();
+    if (scopeType.value === 'division' && !division.value) {
+      event.preventDefault();
+      division.focus();
+      alert('Pilih Divisi khusus terlebih dahulu.');
+    }
+  });
+  syncScope();
   const mode = document.getElementById('locationMode');
   const syncMode = () => document.querySelectorAll('.geofenceField').forEach(item => item.classList.toggle('d-none', mode.value === 'anywhere'));
   mode?.addEventListener('change', syncMode); syncMode();

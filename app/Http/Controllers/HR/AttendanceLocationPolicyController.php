@@ -69,6 +69,10 @@ class AttendanceLocationPolicyController extends Controller
         $data = $request->validate([
             'scope_type' => ['required', Rule::in(['company', 'branch', 'division'])],
             'scope_id' => ['nullable', 'integer'],
+            // Visible selectors are accepted too. This avoids relying on JS
+            // to copy a selected Branch/Site or Divisi into hidden scope_id.
+            'branch_scope_id' => ['nullable', 'integer'],
+            'division_scope_id' => ['nullable', 'integer'],
             'name' => ['required', 'string', 'max:120'],
             'mode' => ['required', Rule::in(['geofence', 'anywhere'])],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
@@ -83,7 +87,8 @@ class AttendanceLocationPolicyController extends Controller
         if ($data['scope_type'] === 'company') {
             $data['scope_id'] = null;
         } elseif ($data['scope_type'] === 'branch') {
-            $data['scope_id'] = $request->integer('branch_scope_id') ?: $data['scope_id'];
+            $visibleScopeId = $request->input('branch_scope_id');
+            $data['scope_id'] = filter_var($visibleScopeId ?: $request->input('scope_id'), FILTER_VALIDATE_INT) ?: null;
             if (! $data['scope_id']) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'scope_id' => ['Pilih Branch / Site terlebih dahulu.'],
@@ -95,7 +100,10 @@ class AttendanceLocationPolicyController extends Controller
                 ]);
             }
         } else {
-            $data['scope_id'] = $request->integer('division_scope_id') ?: $data['scope_id'];
+            // Prefer the visible dropdown. Hidden scope_id is only a fallback
+            // for an older saved form, never the sole source of a division.
+            $visibleScopeId = $request->input('division_scope_id');
+            $data['scope_id'] = filter_var($visibleScopeId ?: $request->input('scope_id'), FILTER_VALIDATE_INT) ?: null;
             if (! $data['scope_id']) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'scope_id' => ['Pilih Divisi khusus terlebih dahulu.'],
