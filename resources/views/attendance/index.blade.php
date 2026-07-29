@@ -11,6 +11,8 @@
 @php
   $selectedStatus = $filters['status'] ?? 'all';
   $statusLabels = ['present' => 'Hadir', 'late' => 'Terlambat', 'incomplete' => 'Belum pulang', 'pending' => 'Review', 'rejected' => 'Ditolak'];
+  $selectedApproval = $filters['approval'] ?? 'all';
+  $approvalTabs = ['all' => 'Semua', 'pending' => 'Menunggu persetujuan', 'approved' => 'Disetujui', 'rejected' => 'Ditolak'];
 @endphp
 
 <div class="card mb-4 border-0" style="background: linear-gradient(120deg, #102b50, #1d5b93); color:#fff;">
@@ -35,6 +37,7 @@
     <div class="col-sm-6 col-lg-3"><label class="form-label">Tanggal</label><input type="date" class="form-control" name="date" value="{{ $date->toDateString() }}"></div>
     <div class="col-sm-6 col-lg-3"><label class="form-label">Branch / Site</label><select class="form-select" name="branch_id"><option value="">Semua Branch / Site</option>@foreach($branches as $branch)<option value="{{ $branch->id }}" @selected((string) ($filters['branch_id'] ?? '') === (string) $branch->id)>{{ $branch->name }}</option>@endforeach</select></div>
     <div class="col-sm-6 col-lg-3"><label class="form-label">Status</label><select class="form-select" name="status"><option value="all">Semua status</option>@foreach($statusLabels as $value => $label)<option value="{{ $value }}" @selected($selectedStatus === $value)>{{ $label }}</option>@endforeach</select></div>
+    <div class="col-sm-6 col-lg-3"><label class="form-label">Approval HR</label><select class="form-select" name="approval">@foreach($approvalTabs as $value => $label)<option value="{{ $value }}" @selected($selectedApproval === $value)>{{ $label }}</option>@endforeach</select></div>
     <div class="col-sm-6 col-lg-3 d-flex gap-2"><button class="btn btn-primary"><i class="ti ti-filter me-1"></i>Tampilkan</button><a href="{{ route('attendance.index') }}" class="btn btn-label-secondary">Reset</a></div>
   </form>
 </div></div>
@@ -48,6 +51,8 @@
   <div class="col-6 col-xl"><div class="card h-100"><div class="card-body"><div class="text-muted small">Review HR</div><h3 class="mb-0 text-info">{{ $stats['pending_review'] }}</h3><small class="text-muted">pending / ditolak</small></div></div></div>
 </div>
 
+<div class="card mb-4"><div class="card-body py-3 d-flex flex-wrap gap-2 align-items-center"><span class="text-muted small me-2">Approval Presensi:</span>@foreach($approvalTabs as $value => $label)<a class="btn btn-sm {{ $selectedApproval === $value ? 'btn-primary' : 'btn-label-secondary' }}" href="{{ route('attendance.index', ['date' => $date->toDateString(), 'branch_id' => $filters['branch_id'] ?? null, 'status' => $selectedStatus, 'approval' => $value]) }}">{{ $label }}</a>@endforeach</div></div>
+
 <div class="card">
   <div class="card-header d-flex flex-column flex-lg-row justify-content-between gap-3"><div><h5 class="mb-1">Rekap presensi</h5><p class="mb-0 text-muted">Bukti selfie/GPS tersimpan sesuai retention. Review hanya mengubah status approval, bukan menghapus rekam presensi.</p></div><div class="d-flex gap-2 flex-wrap">@can('attendance.shift.view')<a class="btn btn-label-primary btn-sm" href="{{ route('attendance.shifts.index') }}">Shift</a>@endcan @can('attendance.shift.assignment.view')<a class="btn btn-label-primary btn-sm" href="{{ route('attendance.shift-assignments.index') }}">Jadwal</a>@endcan @can('attendance.update')<a class="btn btn-label-primary btn-sm" href="{{ route('hr.settings.index') }}">Aturan GPS</a>@endcan</div></div>
   <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Pegawai / Site</th><th>Shift</th><th>Masuk / Pulang</th><th>Durasi / Telat</th><th>GPS & Bukti</th><th>Status</th><th class="text-end">Aksi HR</th></tr></thead><tbody>
@@ -59,8 +64,8 @@
         $hours = sprintf('%02d:%02d', intdiv((int) $record->work_minutes, 60), ((int) $record->work_minutes % 60));
       @endphp
       <tr>
-        <td><strong>{{ $record->employee?->name ?? 'Pegawai tidak ditemukan' }}</strong><div class="small text-muted">{{ $record->employee?->employee_no ?? '-' }} · {{ $record->employee?->branch?->name ?? 'Tanpa site' }}</div></td>
-        <td>{{ $record->shift?->name ?? 'Tanpa shift' }}<div class="small text-muted">{{ $record->shift?->clock_in_time ? substr($record->shift->clock_in_time,0,5) : '-' }}–{{ $record->shift?->clock_out_time ? substr($record->shift->clock_out_time,0,5) : '-' }}</div></td>
+        <td><strong>{{ $record->employee?->name ?? 'Pegawai tidak ditemukan' }}</strong><div class="small text-muted">{{ $record->employee?->employee_no ?? '-' }} Â· {{ $record->employee?->branch?->name ?? 'Tanpa site' }}</div></td>
+        <td>{{ $record->shift?->name ?? 'Tanpa shift' }}<div class="small text-muted">{{ $record->shift?->clock_in_time ? substr($record->shift->clock_in_time,0,5) : '-' }}â€“{{ $record->shift?->clock_out_time ? substr($record->shift->clock_out_time,0,5) : '-' }}</div></td>
         <td><strong>{{ $record->clock_in_at?->format('H:i') ?? '-' }}</strong><div class="small text-muted">Pulang: {{ $record->clock_out_at?->format('H:i') ?? 'Belum tercatat' }}</div></td>
         <td>{{ $hours }}<div class="small {{ $record->late_minutes > 0 ? 'text-warning' : 'text-muted' }}">{{ $record->late_minutes > 0 ? $record->late_minutes . ' menit terlambat' : 'Tepat waktu' }}</div></td>
         <td><div class="small">@if($record->geofence_validated)<span class="text-success"><i class="ti ti-map-pin-check"></i> Valid {{ number_format((float) $record->geofence_distance_meters,0) }} m</span>@else<span class="text-warning"><i class="ti ti-map-pin-question"></i> Belum tervalidasi</span>@endif</div><div class="d-flex gap-1 mt-1">@if($record->in_photo)<a class="btn btn-xs btn-label-primary" target="_blank" href="{{ route('attendance.records.proof', [$record, 'in']) }}">Selfie masuk</a>@endif @if($record->out_photo)<a class="btn btn-xs btn-label-primary" target="_blank" href="{{ route('attendance.records.proof', [$record, 'out']) }}">Selfie pulang</a>@endif</div></td>

@@ -28,6 +28,7 @@ class AttendanceController extends Controller
             'date' => ['nullable', 'date'],
             'branch_id' => ['nullable', 'integer'],
             'status' => ['nullable', 'in:all,present,late,incomplete,pending,rejected'],
+            'approval' => ['nullable', 'in:all,pending,approved,rejected'],
         ]);
         $date = Carbon::parse($filters['date'] ?? today())->startOfDay();
         $branchId = isset($filters['branch_id']) ? (int) $filters['branch_id'] : null;
@@ -60,6 +61,9 @@ class AttendanceController extends Controller
         $stats['not_checked_in'] = max(0, $stats['expected'] - $stats['checked_in']);
 
         $records = $recordsQuery
+            ->when(($filters['approval'] ?? 'all') !== 'all', function ($query) use ($filters): void {
+                $query->where('approval_status', $filters['approval']);
+            })
             ->when(($filters['status'] ?? 'all') !== 'all', function ($query) use ($filters): void {
                 match ($filters['status']) {
                     'incomplete' => $query->whereNotNull('clock_in_at')->whereNull('clock_out_at'),
