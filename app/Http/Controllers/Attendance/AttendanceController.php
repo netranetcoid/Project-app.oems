@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Attendance;
 use App\Http\Controllers\Controller;
 use App\Models\Attendance;
 use App\Models\Branch;
+use App\Models\Company;
 use App\Models\Employee;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -24,13 +25,14 @@ class AttendanceController extends Controller
     public function index(Request $request): View
     {
         $companyId = (int) session('company_id');
+        $timezone = $this->businessTimezone($companyId);
         $filters = $request->validate([
             'date' => ['nullable', 'date'],
             'branch_id' => ['nullable', 'integer'],
             'status' => ['nullable', 'in:all,present,late,incomplete,pending,rejected'],
             'approval' => ['nullable', 'in:all,pending,approved,rejected'],
         ]);
-        $date = Carbon::parse($filters['date'] ?? today())->startOfDay();
+        $date = Carbon::parse($filters['date'] ?? now($timezone)->toDateString(), $timezone)->startOfDay();
         $branchId = isset($filters['branch_id']) ? (int) $filters['branch_id'] : null;
 
         // Satu base query dipakai oleh kartu statistik dan tabel. Ini penting
@@ -77,8 +79,8 @@ class AttendanceController extends Controller
 
         // Nilai ini dihitung server agar tampilan tabel, ekspor kelak, dan API
         // AppBill mempunyai definisi keterlambatan yang sama dengan shift.
-        $records->getCollection()->transform(function (Attendance $attendance): Attendance {
-            $attendance->setAttribute('late_minutes', $this->lateMinutes($attendance));
+        $records->getCollection()->transform(function (Attendance $attendance) use ($timezone): Attendance {
+            $attendance->setAttribute('late_minutes', $this->lateMinutes($attendance, $timezone));
             $attendance->setAttribute('work_minutes', $this->workMinutes($attendance));
             return $attendance;
         });
@@ -89,6 +91,7 @@ class AttendanceController extends Controller
             'filters' => $filters,
             'stats' => $stats,
             'records' => $records,
+            'timezone' => $timezone,
         ]);
     }
 
@@ -135,7 +138,7 @@ class AttendanceController extends Controller
         abort_unless((int) $attendance->company_id === (int) session('company_id'), 404);
     }
 
-    private function lateMinutes(Attendance $attendance): int
+    private function lateMinutes(Attendance $attendance, string $timezone): int
     {
         if (! $attendance->clock_in_at || ! $attendance->shift?->clock_in_time) {
             return 0;
