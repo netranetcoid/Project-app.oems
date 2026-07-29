@@ -17,6 +17,20 @@
 
 <div class="alert alert-info d-flex gap-2 mb-4"><i class="ti ti-shield-check fs-4"></i><div><strong>Mode Geofence</strong> mewajibkan karyawan berada dalam radius titik yang dipilih. <strong>Mode Bebas lokasi</strong> dipakai untuk divisi lapangan/khusus: aplikasi tetap menyimpan selfie, waktu, dan GPS sebagai bukti, tetapi tidak membandingkannya dengan satu titik kantor.</div></div>
 
+<div class="card border border-warning mb-4" id="directDivisionPolicyForm">
+  <div class="card-body">
+    <div class="d-flex gap-2 mb-3"><i class="ti ti-users-group fs-3 text-warning"></i><div><h5 class="mb-1">Divisi khusus â€” Bebas lokasi</h5><div class="text-muted small">Cara paling sederhana untuk divisi lapangan: pilih satu divisi, lalu simpan. Selfie, GPS, waktu, dan catatan tetap wajib; hanya radius kantor yang tidak dikunci.</div></div></div>
+    <form method="POST" action="{{ route('hr.attendance-locations.store') }}" class="row g-3">@csrf
+      <input type="hidden" name="scope_type" value="division">
+      <input type="hidden" name="mode" value="anywhere">
+      <div class="col-md-5"><label class="form-label">Divisi khusus</label><select class="form-select" name="scope_id" required><option value="">Pilih divisi khusus</option>@foreach($divisions as $division)<option value="{{ $division->id }}">{{ $division->name }}</option>@endforeach</select></div>
+      <div class="col-md-4"><label class="form-label">Nama kebijakan</label><input class="form-control" name="name" maxlength="120" required placeholder="Contoh: Teknisi Lapangan bebas lokasi"></div>
+      <div class="col-md-3"><label class="form-label">&nbsp;</label><button class="btn btn-warning w-100 d-block"><i class="ti ti-device-floppy me-1"></i>Simpan Divisi Khusus</button></div>
+      <div class="col-12"><label class="form-label">Catatan</label><input class="form-control" name="notes" maxlength="2000" placeholder="Contoh: Wajib selfie, GPS, dan catatan setiap presensi."></div>
+      <input type="hidden" name="is_active" value="1">
+    </form>
+  </div>
+</div>
 <div class="row g-4">
   <div class="col-xl-4">
     <div class="card h-100"><div class="card-header"><h5 class="mb-1">Tambah Kebijakan Lokasi</h5><p class="mb-0 text-muted small">Satu policy aktif untuk satu scope. Ubah policy yang ada bila scope sudah terdaftar.</p></div><div class="card-body">
