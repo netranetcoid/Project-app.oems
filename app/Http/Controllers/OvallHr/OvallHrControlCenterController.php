@@ -83,10 +83,6 @@ class OvallHrControlCenterController extends Controller
             'welcome_text' => ['nullable', 'string', 'max:160'],
             'primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'secondary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            // Warna berikut hanya mengubah tampilan APK, bukan aturan HR/payroll.
-            'navigation_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'attendance_action_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'quick_menu_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'logo_url' => ['nullable', 'url', 'max:2048'],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
@@ -113,9 +109,6 @@ class OvallHrControlCenterController extends Controller
             'welcome_text' => $data['welcome_text'] ?? null,
             'primary_color' => strtoupper($data['primary_color']),
             'secondary_color' => strtoupper($data['secondary_color']),
-            'navigation_color' => strtoupper($data['navigation_color']),
-            'attendance_action_color' => strtoupper($data['attendance_action_color']),
-            'quick_menu_color' => strtoupper($data['quick_menu_color']),
         ]);
         $settings = is_array($company->settings) ? $company->settings : [];
         $settings['mobile_branding'] = $branding;
@@ -271,9 +264,6 @@ class OvallHrControlCenterController extends Controller
             'welcome_text' => 'Employee Self Service',
             'primary_color' => '#2563EB',
             'secondary_color' => '#0F2747',
-            'navigation_color' => '#1D2B40',
-            'attendance_action_color' => '#06B6D4',
-            'quick_menu_color' => '#364359',
             'logo_url' => null,
             'logo_path' => null,
         ], is_array($settings['mobile_branding'] ?? null) ? $settings['mobile_branding'] : []);

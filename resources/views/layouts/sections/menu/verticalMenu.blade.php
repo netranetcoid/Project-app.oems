@@ -113,7 +113,7 @@
 
   <div class="app-brand demo osm-sidebar-brand">
     <a href="{{ url('/') }}" class="app-brand-link osm-brand-link" aria-label="Dashboard OSM">
-      <span class="app-brand-logo demo">@include('_partials.macros', ['width' => 58])</span>
+      <span class="app-brand-logo demo">@include('_partials.macros', ['width' => 46])</span>
       <span class="osm-brand-copy menu-text">
         <strong>OSM Enterprise</strong>
         <small>{{ config('variables.companyLegalName') }}</small>

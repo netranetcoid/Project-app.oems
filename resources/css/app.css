@@ -217,3 +217,35 @@
     flex: 1 1 calc(50% - .5rem);
   }
 }
+/* OSM sidebar compact controls */
+/* Menjaga komponen bawaan Materialize, hanya mengurangi skala branding dan
+   tanda submenu agar navigasi lebih lega pada layar laptop dan mobile. */
+.osm-sidebar-brand {
+  min-height: 66px;
+  padding-top: .55rem;
+  padding-bottom: .5rem;
+}
+
+.osm-sidebar-brand .osm-logo-image {
+  max-height: 28px;
+  width: auto;
+}
+
+.osm-sidebar-brand .osm-brand-copy strong {
+  font-size: .84rem;
+}
+
+.osm-sidebar-brand .osm-brand-copy small {
+  margin-top: .18rem;
+  font-size: .54rem;
+}
+
+.layout-menu .menu-toggle::after {
+  block-size: .94rem;
+  inline-size: .94rem;
+  opacity: .72;
+}
+
+.layout-menu .menu-vertical .menu-item .menu-toggle {
+  padding-inline-end: calc(var(--bs-menu-vertical-link-padding-x) + 1.25rem);
+}

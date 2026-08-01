@@ -55,9 +55,6 @@ class MobileReleaseController extends Controller
             'welcome_text' => 'Employee Self Service',
             'primary_color' => '#2563EB',
             'secondary_color' => '#0F2747',
-            'navigation_color' => '#1D2B40',
-            'attendance_action_color' => '#06B6D4',
-            'quick_menu_color' => '#364359',
             'logo_url' => null,
         ], is_array($settings['mobile_branding'] ?? null) ? $settings['mobile_branding'] : []);
         return response()->json(['data' => [

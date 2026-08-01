@@ -61,7 +61,9 @@ class EmployeeService
 
             // Field form ini bukan kolom employees; simpan dulu untuk proses
             // akun login lalu keluarkan sebelum insert agar tidak SQL error.
-            $createLogin = (bool) ($data['create_login'] ?? false);
+            // Akun OvallHR selalu dibuat dari email pegawai. Checkbox lama hanya
+// kompatibilitas form; tidak boleh membuat HR mengurus akun satu per satu.
+$provisionMobileAccount = filled($data['email'] ?? null);
             $role = $data['role'] ?? null;
             unset($data['create_login'], $data['role']);
 
@@ -119,7 +121,7 @@ class EmployeeService
 
             $employee = Employee::create($data);
 
-            if ($createLogin && !empty($employee->email)) {
+            if ($provisionMobileAccount) {
                 $user = $this->userService->create($employee->toArray());
                 $employee->update(['user_id' => $user->id]);
                 // Role akan dipasang oleh modul akses terpusat setelah
@@ -154,7 +156,9 @@ class EmployeeService
             throw new \RuntimeException('Company aktif belum dipilih.');
         }
 
-        $createLogin = (bool) ($data['create_login'] ?? false);
+        // Akun OvallHR selalu dibuat dari email pegawai. Checkbox lama hanya
+// kompatibilitas form; tidak boleh membuat HR mengurus akun satu per satu.
+$provisionMobileAccount = filled($data['email'] ?? null);
         $role = $data['role'] ?? null;
         unset($data['create_login'], $data['role']);
 
@@ -194,7 +198,7 @@ class EmployeeService
 
         $employee->update($data);
 
-        if ($createLogin && !empty($employee->email)) {
+        if ($provisionMobileAccount) {
             $user = $employee->user;
             if ($user) {
                 $this->userService->update($user, $employee->toArray());

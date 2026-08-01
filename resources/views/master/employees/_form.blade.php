@@ -585,7 +585,7 @@
 
                 <label class="form-label">
 
-                    Buat Login OEMS
+                    Akun OvallHR
 
                 </label>
 
@@ -605,7 +605,7 @@
                         class="form-check-label"
                         for="create_login">
 
-                        Buat akun login untuk pegawai
+                        Akun dibuat otomatis dari email pegawai saat data disimpan
 
                     </label>
 
