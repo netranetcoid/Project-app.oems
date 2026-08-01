@@ -151,11 +151,15 @@ class AttendanceController extends Controller
             return 0;
         }
 
-        $expected = Carbon::parse($attendance->date->toDateString() . ' ' . $attendance->shift->clock_in_time)
-            ->addMinutes((int) $attendance->shift->grace_in_minutes);
+        // clock_in_at is stored as UTC; the shift is a local business time.
+        $clockIn = $attendance->clock_in_at->copy()->setTimezone($timezone);
+        $expected = Carbon::parse(
+            $attendance->date->toDateString() . ' ' . $attendance->shift->clock_in_time,
+            $timezone
+        )->addMinutes((int) $attendance->shift->grace_in_minutes);
 
-        return $attendance->clock_in_at->greaterThan($expected)
-            ? $expected->diffInMinutes($attendance->clock_in_at)
+        return $clockIn->greaterThan($expected)
+            ? $expected->diffInMinutes($clockIn)
             : 0;
     }
 
@@ -168,3 +172,4 @@ class AttendanceController extends Controller
         return max(0, $attendance->clock_in_at->diffInMinutes($attendance->clock_out_at ?: now()));
     }
 }
+
