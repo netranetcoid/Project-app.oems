@@ -26,8 +26,11 @@ class AttendanceController extends Controller
         $timezone = $this->timezoneFor($employee);
         $date = now($timezone);
         $assignment = $this->proofs->assignment($employee, $date);
-        $policy = $this->proofs->policy($employee, $assignment);
-        $input = $this->validatedProof($request, $policy['selfie_required']);
+                $policy = $this->proofs->policy($employee, $assignment);
+        if ($assignment?->shift?->is_day_off) {
+            throw ValidationException::withMessages(['attendance' => ['Hari ini Day Off; presensi tidak diperlukan.']]);
+        }
+                $input = $this->validatedProof($request, $policy['selfie_required']);
         $distance = $this->proofs->assertGeofence($input, $policy);
 
         $existing = Attendance::query()
@@ -81,8 +84,11 @@ class AttendanceController extends Controller
         $timezone = $this->timezoneFor($employee);
         $date = now($timezone);
         $assignment = $this->proofs->assignment($employee, $date);
-        $policy = $this->proofs->policy($employee, $assignment);
-        $input = $this->validatedProof($request, $policy['selfie_required']);
+                $policy = $this->proofs->policy($employee, $assignment);
+        if ($assignment?->shift?->is_day_off) {
+            throw ValidationException::withMessages(['attendance' => ['Hari ini Day Off; presensi tidak diperlukan.']]);
+        }
+                $input = $this->validatedProof($request, $policy['selfie_required']);
         $distance = $this->proofs->assertGeofence($input, $policy);
         $attendance = Attendance::query()
             ->where('company_id', $employee->company_id)

@@ -476,6 +476,9 @@ Route::get('/shift-assignments/create', [\App\Http\Controllers\Attendance\Attend
 Route::post('/shift-assignments', [\App\Http\Controllers\Attendance\AttendanceShiftAssignmentController::class, 'store'])
     ->middleware('permission:attendance.shift.assignment.create')
     ->name('shift-assignments.store');
+Route::post('/shift-assignments/weekly', [\App\Http\Controllers\Attendance\AttendanceShiftAssignmentController::class, 'storeWeekly'])
+    ->middleware('permission:attendance.shift.assignment.create')
+    ->name('shift-assignments.weekly.store');
 
 Route::get('/shift-assignments/{assignment}/edit', [\App\Http\Controllers\Attendance\AttendanceShiftAssignmentController::class, 'edit'])
     ->middleware('permission:attendance.shift.assignment.update')

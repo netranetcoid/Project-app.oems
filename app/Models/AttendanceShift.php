@@ -5,8 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Schema;
 
 class AttendanceShift extends Model
 {
@@ -22,12 +22,6 @@ class AttendanceShift extends Model
         'settings' => 'array',
     ];
 
-    /*
-    |--------------------------------------------------------------------------
-    | Relationship
-    |--------------------------------------------------------------------------
-    */
-
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
@@ -37,12 +31,6 @@ class AttendanceShift extends Model
     {
         return $this->belongsTo(Branch::class);
     }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Scope
-    |--------------------------------------------------------------------------
-    */
 
     public function scopeActive(Builder $query): Builder
     {
@@ -56,5 +44,12 @@ class AttendanceShift extends Model
     public function scopeCompany(Builder $query, int $companyId): Builder
     {
         return $query->where('company_id', $companyId);
+    }
+
+    /** Day Off is data-driven, so it is safe for existing integrations. */
+    public function getIsDayOffAttribute(): bool
+    {
+        return (bool) (($this->settings ?? [])['day_off'] ?? false)
+            || strtoupper((string) $this->code) === 'OFF';
     }
 }
