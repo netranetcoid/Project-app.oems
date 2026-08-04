@@ -357,7 +357,10 @@
           ...options
         });
 
-        const data = await response.json().catch(() => ({}));
+        const contentType = response.headers.get('content-type') || '';
+        const data = contentType.includes('application/json')
+          ? await response.json().catch(() => ({}))
+          : { message: (await response.text()).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() };
 
         if (!response.ok) {
           const message = data.message || Object.values(data.errors || {}).flat().join('<br>') ||
@@ -452,7 +455,12 @@
       });
 
       document.getElementById('btnSaveProfile').addEventListener('click', async function() {
+        const button = this;
         const userId = document.getElementById('selectedUserId').value;
+        if (!userId) { showAlert('danger', 'Pilih pengguna terlebih dahulu.'); return; }
+        button.disabled = true;
+        const originalHtml = button.innerHTML;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Menyimpan...';
 
         try {
           const result = await requestJson(`/settings/user-access/${userId}`, {
@@ -468,10 +476,13 @@
             })
           });
 
-          showAlert('success', result.message);
-          loadUsers();
+          showAlert('success', result.message || 'Data akun berhasil disimpan.');
+          await loadUsers();
         } catch (error) {
-          showAlert('danger', error.message);
+          showAlert('danger', error.message || 'Data akun gagal disimpan.');
+        } finally {
+          button.disabled = false;
+          button.innerHTML = originalHtml;
         }
       });
 

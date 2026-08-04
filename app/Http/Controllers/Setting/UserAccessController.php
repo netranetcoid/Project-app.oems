@@ -108,6 +108,7 @@ class UserAccessController extends Controller
         'id' => $user->id,
         'name' => $user->name,
         'email' => $user->email,
+        'username' => Schema::hasColumn('users', 'username') ? $user->username : null,
         'division_id' => $user->division_id,
         'position_id' => $user->position_id,
         'status' => $user->status ?? 'active',
@@ -126,8 +127,8 @@ class UserAccessController extends Controller
       'name' => ['required', 'string', 'max:255'],
       'email' => ['required', 'email', 'max:255'],
       'username' => ['nullable', 'string', 'max:100'],
-      'division_id' => ['nullable', 'integer'],
-      'position_id' => ['nullable', 'integer'],
+      'division_id' => ['nullable', 'integer', Rule::exists('divisions', 'id')->where(fn ($query) => $query->where('company_id', $this->accessService->currentCompanyId()))],
+      'position_id' => ['nullable', 'integer', Rule::exists('positions', 'id')->where(fn ($query) => $query->where('company_id', $this->accessService->currentCompanyId()))],
       'status' => ['nullable', Rule::in(['active', 'inactive', 'suspended'])],
       'is_active' => ['nullable', 'boolean'],
     ];
