@@ -10,6 +10,7 @@ use App\Services\AccessService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -59,6 +60,11 @@ class UserAccessController extends Controller
 
           if (Schema::hasColumn('users', 'company_id')) {
             $q->orWhere('company_id', $companyId);
+          }
+          if (Schema::hasTable('employees') && Schema::hasColumn('employees', 'company_id')) {
+            $q->orWhereHas('employee', function ($employeeQuery) use ($companyId) {
+              $employeeQuery->where('employees.company_id', $companyId);
+            });
           }
         });
       })
@@ -116,27 +122,60 @@ class UserAccessController extends Controller
   {
     $this->authorizeUserAccess($request, $user);
 
-    $validated = $request->validate([
+    $rules = [
+      'name' => ['required', 'string', 'max:255'],
+      'email' => ['required', 'email', 'max:255'],
+      'username' => ['nullable', 'string', 'max:100'],
       'division_id' => ['nullable', 'integer'],
       'position_id' => ['nullable', 'integer'],
       'status' => ['nullable', Rule::in(['active', 'inactive', 'suspended'])],
       'is_active' => ['nullable', 'boolean'],
-    ]);
+    ];
+    if (Schema::hasColumn('users', 'email')) {
+      $rules['email'][] = Rule::unique('users', 'email')->ignore($user->id);
+    }
+    if (Schema::hasColumn('users', 'username')) {
+      $rules['username'][] = Rule::unique('users', 'username')->ignore($user->id);
+    }
+    $validated = $request->validate($rules);
 
     $updates = [];
-
-    foreach ($validated as $column => $value) {
-      if (Schema::hasColumn('users', $column)) {
-        $updates[$column] = $value;
+    foreach (['name', 'email', 'username', 'division_id', 'position_id', 'status', 'is_active'] as $column) {
+      if (array_key_exists($column, $validated) && Schema::hasColumn('users', $column)) {
+        $updates[$column] = $validated[$column];
       }
     }
-
     if ($updates) {
-      $user->update($updates);
+      $user->forceFill($updates)->save();
     }
 
     return response()->json([
       'message' => 'Data user berhasil diperbarui.',
+    ]);
+  }
+
+  public function resetPassword(Request $request, User $user): JsonResponse
+  {
+    abort_unless((bool) ($request->user()?->is_developer ?? false), 403, 'Reset password hanya dapat dilakukan Developer.');
+    $this->authorizeUserAccess($request, $user);
+
+    $updates = ['password' => Hash::make('12345678')];
+    if (Schema::hasColumn('users', 'password_changed_at')) {
+      $updates['password_changed_at'] = null;
+    }
+    if (Schema::hasColumn('users', 'is_locked')) {
+      $updates['is_locked'] = false;
+    }
+    if (Schema::hasColumn('users', 'status')) {
+      $updates['status'] = 'active';
+    }
+    if (Schema::hasColumn('users', 'is_active')) {
+      $updates['is_active'] = true;
+    }
+    $user->forceFill($updates)->save();
+
+    return response()->json([
+      'message' => 'Password direset ke 12345678. Pengguna wajib menggantinya setelah login.',
     ]);
   }
 
@@ -209,8 +248,14 @@ class UserAccessController extends Controller
   private function authorizeUserAccess(Request $request, User $targetUser): void
   {
     $companyId = $this->accessService->currentCompanyId();
+    $belongs = $this->accessService->ensureUserBelongsToCompany($targetUser, $companyId);
 
-    if (!$this->accessService->ensureUserBelongsToCompany($targetUser, $companyId)) {
+    if (!$belongs && Schema::hasTable('employees') && Schema::hasColumn('employees', 'company_id')) {
+      $belongs = $targetUser->employee()
+        ->where('employees.company_id', $companyId)
+        ->exists();
+    }
+    if (!$belongs) {
       abort(403, 'User bukan bagian dari company aktif.');
     }
 
@@ -239,3 +284,4 @@ class UserAccessController extends Controller
     return 'active';
   }
 }
+

@@ -168,6 +168,9 @@ Route::middleware([
       ->middleware('permission:users.update')
       ->name('user-access.edit');
 
+    Route::post('/user-access/{user}/reset-password', [UserAccessController::class, 'resetPassword'])
+      ->middleware('permission:users.update')
+      ->name('user-access.reset-password');
     Route::put('/user-access/{user}', [UserAccessController::class, 'update'])
       ->middleware('permission:users.update')
       ->name('user-access.update');
@@ -689,3 +692,4 @@ Route::middleware(['auth', 'company.selected', 'permission.company.context'])->g
 Route::middleware(['auth', 'company.selected', 'permission.company.context'])->get('/settings', [\App\Http\Controllers\Setting\SettingsHubController::class, 'index'])->middleware('permission:dashboard.view')->name('settings.hub.index');
 Route::middleware(['auth', 'company.selected', 'permission.company.context'])->get('/settings/company-profile', [\App\Http\Controllers\Setting\CompanyProfileController::class, 'index'])->middleware('permission:company.view')->name('settings.company-profile.index');
 Route::middleware(['auth', 'company.selected', 'permission.company.context'])->put('/settings/company-profile', [\App\Http\Controllers\Setting\CompanyProfileController::class, 'update'])->middleware('permission:company.update')->name('settings.company-profile.update');
+

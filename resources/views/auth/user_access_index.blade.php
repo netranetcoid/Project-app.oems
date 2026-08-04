@@ -2,6 +2,102 @@
 
 @section('title', 'User Access')
 
+@php
+  // Kamus ini hanya untuk tampilan halaman Akses Pengguna. Kode permission
+  // tetap dipakai sebagai value checkbox agar aturan backend tidak berubah.
+  $roleMeta = [
+    'super-admin' => ['label' => 'Super Admin', 'description' => 'Akses penuh seluruh modul perusahaan'],
+    'owner' => ['label' => 'Owner', 'description' => 'Akses pemilik dan pengawasan perusahaan'],
+    'director' => ['label' => 'Direktur', 'description' => 'Akses manajemen tingkat direktur'],
+    'general-manager' => ['label' => 'General Manager', 'description' => 'Akses operasional lintas unit'],
+    'manager' => ['label' => 'Manager', 'description' => 'Akses pengelolaan unit kerja'],
+    'supervisor' => ['label' => 'Supervisor', 'description' => 'Akses supervisi tim'],
+    'leader' => ['label' => 'Leader', 'description' => 'Akses pengawasan pekerjaan tim'],
+    'hr' => ['label' => 'HR', 'description' => 'Akses pengelolaan sumber daya manusia'],
+    'finance' => ['label' => 'Keuangan', 'description' => 'Akses payroll dan biaya pegawai'],
+    'noc' => ['label' => 'NOC', 'description' => 'Akses operasional jaringan sesuai izin'],
+    'technician' => ['label' => 'Teknisi', 'description' => 'Akses pekerjaan teknis sesuai izin'],
+    'marketing' => ['label' => 'Marketing', 'description' => 'Akses pekerjaan marketing sesuai izin'],
+    'sales' => ['label' => 'Sales', 'description' => 'Akses pekerjaan sales sesuai izin'],
+    'customer-service' => ['label' => 'Customer Service', 'description' => 'Akses layanan pelanggan sesuai izin'],
+    'staff' => ['label' => 'Staff', 'description' => 'Akses dasar sesuai penugasan'],
+  ];
+
+  $permissionMenuLabels = [
+    'dashboard' => 'Dashboard',
+    'company' => 'Perusahaan',
+    'branch' => 'Branch / Site',
+    'division' => 'Divisi',
+    'position' => 'Jabatan',
+    'employees' => 'Pegawai',
+    'employee-document' => 'Dokumen Pegawai',
+    'contract-type' => 'Jenis Kontrak',
+    'company-document' => 'Master Dokumen',
+    'bpjs-registration' => 'Pendaftaran BPJS',
+    'bpjs-calculation' => 'BPJS Calculation Engine',
+    'attendance' => 'Kehadiran / Absensi',
+    'leave' => 'Izin & Cuti',
+    'hr-request' => 'Permintaan HR',
+    'overtime' => 'Lembur',
+    'kpi' => 'KPI',
+    'payroll' => 'Payroll',
+    'employee-cost' => 'Biaya Pegawai',
+    'mobile-release' => 'Rilis OvallHR',
+    'business-trip' => 'Perjalanan Dinas',
+    'vehicle-cost' => 'Biaya Kendaraan',
+    'task' => 'Tugas',
+    'project' => 'Proyek',
+    'asset' => 'Aset',
+    'knowledge' => 'Pengetahuan',
+    'meeting' => 'Rapat',
+    'report' => 'Laporan',
+    'users' => 'Akses Pengguna',
+    'roles' => 'Role',
+    'permissions' => 'Permission',
+    'menus' => 'Menu Sistem',
+    'integration' => 'Integrasi',
+    'audit' => 'Audit',
+    'health' => 'Kesehatan Sistem',
+  ];
+
+  $permissionActionLabels = [
+    'view' => 'Lihat',
+    'create' => 'Tambah',
+    'update' => 'Edit',
+    'delete' => 'Hapus',
+    'manage' => 'Kelola',
+    'approve' => 'Setujui',
+    'publish' => 'Publikasikan',
+    'export' => 'Ekspor',
+    'dispatch' => 'Kirim',
+    'policy' => 'Atur Kebijakan',
+    'assignment' => 'Penugasan',
+  ];
+
+  $permissionDescriptions = [
+    'dashboard.view' => 'Melihat ringkasan dan statistik perusahaan',
+    'users.view' => 'Melihat daftar akun pengguna AppOEMS',
+    'users.update' => 'Mengubah divisi, jabatan, status, dan akses akun',
+    'roles.view' => 'Melihat daftar role yang tersedia',
+    'roles.update' => 'Mengubah role yang diberikan kepada pengguna',
+    'permissions.view' => 'Melihat daftar permission sistem',
+    'permissions.update' => 'Mengatur permission langsung pengguna',
+    'attendance.view' => 'Melihat data kehadiran dan bukti presensi',
+    'attendance.approve' => 'Menyetujui atau menolak presensi',
+    'attendance.shift.view' => 'Melihat master shift dan jadwal kerja',
+    'attendance.shift.assignment.view' => 'Melihat penugasan shift pegawai',
+    'payroll.view' => 'Melihat data payroll dan komponen gaji',
+    'payroll.approve' => 'Menyetujui proses payroll',
+    'mobile-release.manage' => 'Mengunggah dan mempublikasikan rilis OvallHR',
+    'integration.manage' => 'Mengelola koneksi integrasi AppBill',
+  ];
+
+  // Hitung grup di blok PHP agar directive @foreach tetap sederhana dan
+  // kompatibel dengan compiler Blade.
+  $permissionGroups = $permissions->groupBy(function ($permission) {
+    return explode('.', $permission->name)[0];
+  });
+@endphp
 @section('content')
   <div class="row g-4">
     <div class="col-12">
@@ -22,13 +118,22 @@
         <div class="card-body">
           <div id="userAccessAlert"></div>
 
+          <div class="alert alert-info d-flex gap-3 align-items-start mb-4">
+            <i class="ti ti-login fs-4"></i>
+            <div>
+              <div class="fw-medium">Cara login AppOEMS</div>
+              <div class="small">Buka <strong>https://oems.osm.net.id/login</strong>, lalu gunakan username atau email akun AppOEMS dan kata sandi yang diberikan Admin/Developer.</div>
+              <div class="small mt-1">Akun, role, dan permission di halaman ini mengikuti company aktif. Jika lupa kata sandi, minta reset kepada Developer.</div>
+            </div>
+          </div>
+
           <div class="table-responsive">
             <table class="table table-hover table-bordered align-middle" id="userAccessTable">
               <thead>
                 <tr>
                   <th>Nama</th>
                   <th>Email</th>
-                  <th>Company</th>
+                  <th>Perusahaan</th>
                   <th>Divisi</th>
                   <th>Jabatan</th>
                   <th>Role</th>
@@ -38,7 +143,7 @@
               </thead>
               <tbody>
                 <tr>
-                  <td colspan="8" class="text-center text-muted py-5">Loading data...</td>
+                  <td colspan="8" class="text-center text-muted py-5">Memuat data...</td>
                 </tr>
               </tbody>
             </table>
@@ -68,6 +173,20 @@
     <div class="offcanvas-body">
       <input type="hidden" id="selectedUserId">
 
+      <div class="mb-3">
+        <label class="form-label">Nama lengkap</label>
+        <input type="text" class="form-control" id="userName" required>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Username login</label>
+        <input type="text" class="form-control" id="userUsername">
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Email login</label>
+        <input type="email" class="form-control" id="userEmail" required>
+      </div>
       <div class="mb-3">
         <label class="form-label">Divisi</label>
         <select class="form-select" id="divisionId">
@@ -103,15 +222,26 @@
         </button>
       </div>
 
+      <div class="d-grid mb-4">
+        <button type="button" class="btn btn-outline-danger" id="btnResetPassword">
+          Reset Password ke 12345678 (Developer)
+        </button>
+        <small class="text-muted mt-2">Password sementara berlaku sekali; pengguna wajib menggantinya setelah login.</small>
+      </div>
       <hr>
 
       <div class="mb-3">
-        <label class="form-label">Role</label>
+        <label class="form-label">Role / Peran Pengguna</label>
+        <small class="text-muted d-block mb-2">Role menentukan kelompok akses utama pengguna.</small>
         <div class="list-group">
           @foreach ($roles as $role)
-            <label class="list-group-item d-flex align-items-center gap-2">
-              <input class="form-check-input role-checkbox" type="checkbox" value="{{ $role->name }}">
-              <span class="fw-medium">{{ $role->name }}</span>
+            @php($meta = $roleMeta[$role->name] ?? ['label' => ucwords(str_replace(['-', '_'], ' ', $role->name)), 'description' => 'Kelompok hak akses pengguna'])
+            <label class="list-group-item d-flex align-items-start gap-2">
+              <input class="form-check-input role-checkbox mt-1" type="checkbox" value="{{ $role->name }}">
+              <span>
+                <span class="fw-medium d-block">{{ $meta['label'] }}</span>
+                <small class="text-muted">{{ $meta['description'] }}</small>
+              </span>
             </label>
           @endforeach
         </div>
@@ -128,25 +258,37 @@
           <h2 class="accordion-header" id="permissionHeading">
             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
               data-bs-target="#permissionCollapse">
-              Direct Permission Optional
+              Permission Tambahan (Opsional)
             </button>
           </h2>
           <div id="permissionCollapse" class="accordion-collapse collapse" data-bs-parent="#permissionAccordion">
             <div class="accordion-body">
-              <div class="row g-2">
-                @foreach ($permissions as $permission)
-                  <div class="col-12">
-                    <label class="form-check">
-                      <input class="form-check-input permission-checkbox" type="checkbox" value="{{ $permission->name }}">
-                      <span class="form-check-label">{{ $permission->name }}</span>
-                    </label>
-                  </div>
-                @endforeach
+              <div class="alert alert-light border small mb-3">
+                <strong>Rincian hak menu (Bahasa Indonesia)</strong><br>
+                Centang hanya akses tambahan yang memang diperlukan. Nilai teknis permission tetap disimpan oleh sistem.
               </div>
-
+              <?php foreach ($permissions as $permission): ?>
+                <?php
+                  $parts = explode('.', $permission->name);
+                  $moduleKey = $parts[0] ?? 'other';
+                  $action = $parts[1] ?? 'view';
+                  $moduleLabel = $permissionMenuLabels[$moduleKey] ?? ucwords(str_replace(['-', '_'], ' ', $moduleKey));
+                  $permissionLabel = ($permissionActionLabels[$action] ?? ucwords(str_replace(['-', '_'], ' ', $action))) . ' ' . $moduleLabel;
+                  $permissionDescription = $permissionDescriptions[$permission->name] ?? 'Mengatur akses pengguna pada menu ' . $moduleLabel;
+                ?>                <div class="border rounded p-3 mb-2">
+                  <label class="form-check d-flex align-items-start gap-2 mb-0">
+                    <input class="form-check-input permission-checkbox mt-1" type="checkbox" value="{{ $permission->name }}">
+                    <span>
+                      <span class="badge bg-label-primary mb-1">{{ $moduleLabel }}</span>
+                      <span class="form-check-label d-block">{{ $permissionLabel }}</span>
+                      <small class="text-muted">{{ $permissionDescription }}</small>
+                    </span>
+                  </label>
+                </div>
+              <?php endforeach; ?>
               <div class="d-grid mt-3">
                 <button type="button" class="btn btn-label-warning" id="btnSavePermissions">
-                  Simpan Direct Permission
+                  Simpan Permission Tambahan
                 </button>
               </div>
             </div>
@@ -186,15 +328,22 @@
           locked: 'danger'
         };
 
-        return `<span class="badge bg-label-${map[status] || 'secondary'}">${status}</span>`;
+        const labels = { active: 'Aktif', inactive: 'Tidak Aktif', suspended: 'Ditangguhkan', locked: 'Terkunci' };
+        return `<span class="badge bg-label-${map[status] || 'secondary'}">${labels[status] || status}</span>`;
       };
 
+      const roleLabels = {
+        'super-admin': 'Super Admin', owner: 'Owner', director: 'Direktur', 'general-manager': 'General Manager',
+        manager: 'Manager', supervisor: 'Supervisor', leader: 'Leader', hr: 'HR', finance: 'Keuangan',
+        noc: 'NOC', technician: 'Teknisi', marketing: 'Marketing', sales: 'Sales',
+        'customer-service': 'Customer Service', staff: 'Staff'
+      };
       const badgeRoles = roles => {
         if (!roles || roles.length === 0) {
           return `<span class="badge bg-label-warning">Belum ada role</span>`;
         }
 
-        return roles.map(role => `<span class="badge bg-label-primary me-1 mb-1">${role}</span>`).join('');
+        return roles.map(role => `<span class="badge bg-label-primary me-1 mb-1">${roleLabels[role] || role}</span>`).join('');
       };
 
       const requestJson = async (url, options = {}) => {
@@ -220,7 +369,7 @@
       };
 
       const loadUsers = async () => {
-        tableBody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-5">Loading data...</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="8" class="text-center text-muted py-5">Memuat data...</td></tr>`;
 
         try {
           const result = await requestJson('/settings/user-access/data');
@@ -228,7 +377,7 @@
 
           if (users.length === 0) {
             tableBody.innerHTML =
-              `<tr><td colspan="8" class="text-center text-muted py-5">Belum ada data user.</td></tr>`;
+              `<tr><td colspan="8" class="text-center text-muted py-5">Belum ada data pengguna.</td></tr>`;
             return;
           }
 
@@ -268,6 +417,9 @@
           const result = await requestJson(`/settings/user-access/${userId}/edit`);
 
           document.getElementById('selectedUserId').value = result.user.id;
+          document.getElementById('userName').value = result.user.name || '';
+          document.getElementById('userUsername').value = result.user.username || '';
+          document.getElementById('userEmail').value = result.user.email || '';
           document.getElementById('userAccessCanvasLabel').textContent = result.user.name || 'Edit Akses User';
           document.getElementById('canvasUserEmail').textContent = result.user.email || '';
           document.getElementById('divisionId').value = result.user.division_id || '';
@@ -306,6 +458,9 @@
           const result = await requestJson(`/settings/user-access/${userId}`, {
             method: 'PUT',
             body: JSON.stringify({
+              name: document.getElementById('userName').value,
+              username: document.getElementById('userUsername').value || null,
+              email: document.getElementById('userEmail').value,
               division_id: document.getElementById('divisionId').value || null,
               position_id: document.getElementById('positionId').value || null,
               status: document.getElementById('userStatus').value,
@@ -320,6 +475,16 @@
         }
       });
 
+      document.getElementById('btnResetPassword').addEventListener('click', async function() {
+        const userId = document.getElementById('selectedUserId').value;
+        if (!confirm('Reset password pengguna ini ke 12345678?')) return;
+        try {
+          const result = await requestJson(`/settings/user-access/${userId}/reset-password`, { method: 'POST' });
+          showAlert('success', result.message);
+        } catch (error) {
+          showAlert('danger', error.message);
+        }
+      });
       document.getElementById('btnSaveRoles').addEventListener('click', async function() {
         const userId = document.getElementById('selectedUserId').value;
         const roles = [...document.querySelectorAll('.role-checkbox:checked')].map(el => el.value);
@@ -362,3 +527,4 @@
     });
   </script>
 @endsection
+
