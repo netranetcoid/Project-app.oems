@@ -40,6 +40,12 @@ Route::middleware('auth')->group(function () {
   Route::post('/logout', [LoginController::class, 'logout'])
     ->name('logout');
 
+  Route::get('/change-password', [\App\Http\Controllers\Auth\PasswordController::class, 'edit'])
+    ->name('password.change');
+  Route::put('/change-password', [\App\Http\Controllers\Auth\PasswordController::class, 'update'])
+    ->middleware('throttle:6,1')
+    ->name('password.update');
+
   Route::get('/select-company', [LoginController::class, 'selectCompany'])
     ->name('company.select');
 

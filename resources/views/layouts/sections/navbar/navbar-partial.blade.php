@@ -123,7 +123,7 @@
       <ul class="dropdown-menu dropdown-menu-end mt-3 py-2">
         <li>
           <a class="dropdown-item"
-            href="{{ Route::has('profile.show') ? route('profile.show') : 'javascript:void(0);' }}">
+            href="{{ route('password.change') }}">
             <div class="d-flex align-items-center">
               <div class="flex-shrink-0 me-2">
                 <div class="avatar avatar-online">
@@ -149,9 +149,8 @@
         </li>
         <li>
           <a class="dropdown-item"
-            href="{{ Route::has('profile.show') ? route('profile.show') : 'javascript:void(0);' }}">
-            <i class="icon-base ri ri-user-3-line icon-22px me-2"></i> <span class="align-middle">My
-              Profile</span> </a>
+            href="{{ route('password.change') }}">
+            <i class="icon-base ri ri-user-3-line icon-22px me-2"></i> <span class="align-middle">Ubah Kata Sandi</span> </a>
         </li>
         @if (Auth::check() &&
                 class_exists(\Laravel\Jetstream\Jetstream::class) &&

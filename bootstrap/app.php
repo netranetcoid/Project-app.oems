@@ -5,6 +5,7 @@ use App\Http\Middleware\SetPermissionCompanyContext;
 use App\Http\Middleware\AuditMutation;
 use App\Http\Middleware\EnsureAppBillIntegrationRequest;
 use App\Http\Middleware\EnsureMobilePasswordChanged;
+use App\Http\Middleware\EnsureWebPasswordChanged;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -43,6 +44,7 @@ return Application::configure(basePath: dirname(__DIR__))
     // Semua mutasi web dan API diberi request ID serta audit metadata. Nilai
     // sensitif tidak disalin oleh middleware audit.
     $middleware->appendToGroup('web', AuditMutation::class);
+    $middleware->appendToGroup('web', EnsureWebPasswordChanged::class);
     $middleware->appendToGroup('api', AuditMutation::class);
 
     $middleware->priority([
