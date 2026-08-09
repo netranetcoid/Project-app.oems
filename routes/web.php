@@ -707,4 +707,15 @@ Route::middleware(['auth', 'company.selected', 'permission.company.context'])->g
 Route::middleware(['auth', 'company.selected', 'permission.company.context'])->get('/settings', [\App\Http\Controllers\Setting\SettingsHubController::class, 'index'])->middleware('permission:dashboard.view')->name('settings.hub.index');
 Route::middleware(['auth', 'company.selected', 'permission.company.context'])->get('/settings/company-profile', [\App\Http\Controllers\Setting\CompanyProfileController::class, 'index'])->middleware('permission:company.view')->name('settings.company-profile.index');
 Route::middleware(['auth', 'company.selected', 'permission.company.context'])->put('/settings/company-profile', [\App\Http\Controllers\Setting\CompanyProfileController::class, 'update'])->middleware('permission:company.update')->name('settings.company-profile.update');
-
+/* e-Bupot Vendor: modul Finance/Tax terisolasi per company. */
+Route::middleware(['auth','company.selected','permission.company.context'])->prefix('finance/ebupot-vendors')->name('finance.ebupot-vendors.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Finance\EbupotVendorController::class,'index'])->middleware('permission:ebupot-vendor.view')->name('index');
+    Route::post('/vendors', [\App\Http\Controllers\Finance\EbupotVendorController::class,'storeVendor'])->middleware('permission:ebupot-vendor.manage')->name('vendors.store');
+    Route::put('/vendors/{vendor}', [\App\Http\Controllers\Finance\EbupotVendorController::class,'updateVendor'])->middleware('permission:ebupot-vendor.manage')->name('vendors.update');
+    Route::delete('/vendors/{vendor}', [\App\Http\Controllers\Finance\EbupotVendorController::class,'destroyVendor'])->middleware('permission:ebupot-vendor.manage')->name('vendors.destroy');
+    Route::put('/records/{record}', [\App\Http\Controllers\Finance\EbupotVendorController::class,'updateRecord'])->middleware('permission:ebupot-vendor.manage')->name('records.update');
+    Route::put('/settings', [\App\Http\Controllers\Finance\EbupotVendorController::class,'updateSettings'])->middleware('permission:ebupot-vendor.manage')->name('settings.update');
+    Route::get('/records/{record}/whatsapp', [\App\Http\Controllers\Finance\EbupotVendorController::class,'whatsapp'])->middleware('permission:ebupot-vendor.whatsapp')->name('whatsapp');
+    Route::get('/records/{record}/print', [\App\Http\Controllers\Finance\EbupotVendorController::class,'print'])->middleware('permission:ebupot-vendor.print')->name('print');
+    Route::get('/records/{record}/files/{type}', [\App\Http\Controllers\Finance\EbupotVendorController::class,'download'])->middleware('permission:ebupot-vendor.view')->name('download');
+});
