@@ -172,14 +172,14 @@ class MenuSeeder extends Seeder
 
         // child() di atas mengaktifkan ulang menu sistem saat upsert. Jalankan
         // penyederhanaan di akhir supaya hanya OvallHR Control yang terlihat
-        // pada sidebar; route asal tetap hidup sebagai tujuan kartu di pusat.
+        // pada sidebar; payroll tetap terlihat karena merupakan fungsi HR inti.
         DB::table('menus')
             ->where('is_system', true)
             ->whereIn('code', [
                 'hr-settings', 'master-attendance-shifts',
                 'master-shift-assignments', 'master-compensation',
                 'master-kpi-aspects', 'attendance', 'hr-requests',
-                'hr-payroll', 'hr-kpi', 'mobile-release-center',
+                'hr-kpi', 'mobile-release-center',
             ])
             ->update(['is_active' => false, 'updated_at' => now()]);
     }

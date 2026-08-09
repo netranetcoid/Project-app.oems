@@ -432,6 +432,15 @@ Route::prefix('attendance')
     ->middleware('permission:attendance.view')
     ->name('index');
 
+    Route::get('/report', [\App\Http\Controllers\Attendance\AttendanceReportController::class, 'index'])
+        ->middleware('permission:attendance.view')
+        ->name('report.index');
+    Route::get('/report/export', [\App\Http\Controllers\Attendance\AttendanceReportController::class, 'export'])
+        ->middleware('permission:attendance.view')
+        ->name('report.export');
+
+
+
         // Dashboard review HR. Bukti selfie dibuka melalui route terproteksi
         // agar hanya user berizin absensi yang dapat melihatnya dari AppOEMS.
         Route::get('/records/{attendance}/proof/{direction}', [\App\Http\Controllers\Attendance\AttendanceController::class, 'proof'])

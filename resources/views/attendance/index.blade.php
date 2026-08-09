@@ -23,7 +23,7 @@
         <h3 class="text-white mb-1"><i class="ti ti-fingerprint me-2"></i>Dashboard Absensi</h3>
         <p class="mb-0 opacity-75">Pantau kehadiran, GPS, selfie, jam kerja, keterlambatan, dan review HR dalam satu layar.</p>
       </div>
-      <div class="align-self-xl-center"><span class="badge bg-white text-primary fs-6">{{ $date->translatedFormat('l, d F Y') }}</span></div>
+      <div class="align-self-xl-center d-flex flex-wrap gap-2"><a class="btn btn-light" href="{{ route('attendance.report.index') }}"><i class="ti ti-report-analytics me-1"></i>Rekap Periode</a><span class="badge bg-white text-primary fs-6 align-self-center">{{ $date->translatedFormat('l, d F Y') }}</span></div>
     </div>
   </div>
 </div>
