@@ -252,6 +252,9 @@ Route::middleware([
     Route::put('/bpjs-calculation', [\App\Http\Controllers\Setting\BpjsCalculationController::class, 'update'])
       ->middleware('permission:bpjs-calculation.manage')
       ->name('bpjs-calculation.update');
+    Route::post('/bpjs-calculation/reset-official-defaults', [\App\Http\Controllers\Setting\BpjsCalculationController::class, 'resetOfficialDefaults'])
+      ->middleware('permission:bpjs-calculation.manage')
+      ->name('bpjs-calculation.reset-official-defaults');
     Route::post('/bpjs-calculation/preview', [\App\Http\Controllers\Setting\BpjsCalculationController::class, 'preview'])
       ->middleware('permission:bpjs-calculation.view')
       ->name('bpjs-calculation.preview');

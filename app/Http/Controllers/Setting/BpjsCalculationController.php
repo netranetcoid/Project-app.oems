@@ -46,6 +46,23 @@ class BpjsCalculationController extends Controller
         return back()->with('success', 'Konfigurasi BPJS tersimpan. Payroll baru akan memakai tarif ini; slip historis tetap memakai snapshot lama.');
     }
 
+    /** Kembalikan tarif perusahaan ke preset resmi tanpa mengubah gaji/kepesertaan pegawai. */
+    public function resetOfficialDefaults(Request $request): RedirectResponse
+    {
+        $request->validate(['confirm_reset' => ['accepted']]);
+
+        $defaults = config('bpjs.official_defaults');
+        abort_unless(is_array($defaults) && $defaults !== [], 500, 'Preset default BPJS belum dikonfigurasi.');
+
+        $setting = $this->calculator->settingForCompany((int) session('company_id'));
+        $setting->update([
+            ...$defaults,
+            'effective_from' => now()->toDateString(),
+            'notes' => config('bpjs.official_reference'),
+        ]);
+
+        return back()->with('success', 'Konfigurasi BPJS dikembalikan ke default resmi. Gaji, kepesertaan, dan slip historis tidak berubah.');
+    }
     public function preview(Request $request): RedirectResponse
     {
         // Browser boleh mengirim format Indonesia 1.500.000. Normalisasi di
