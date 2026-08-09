@@ -1,16 +1,99 @@
 @extends('layouts/layoutMaster')
 
-@section('title', 'Role Permission')
+@section('title', 'Hak Akses Peran')
 
 @section('content')
+  @php
+    /* Hanya label tampilan. Nama permission asli tetap dikirim saat penyimpanan. */
+    $roleLabels = [
+      'viewer' => 'Peninjau',
+      'marketing' => 'Pemasaran',
+      'sales' => 'Penjualan',
+      'technician' => 'Teknisi',
+      'noc' => 'NOC / Operasional Jaringan',
+      'hr' => 'HR / Sumber Daya Manusia',
+      'finance' => 'Keuangan',
+      'management' => 'Manajemen',
+      'general-manager' => 'General Manager',
+      'company-admin' => 'Admin Perusahaan',
+      'company-owner' => 'Pemilik Perusahaan',
+      'owner' => 'Pemilik / Owner',
+      'super-admin' => 'Super Admin',
+      'developer' => 'Developer',
+    ];
+
+    $moduleLabels = [
+      'dashboard' => 'Dashboard', 'company' => 'Perusahaan', 'branch' => 'Branch / Site',
+      'division' => 'Divisi', 'position' => 'Jabatan', 'employees' => 'Pegawai',
+      'employee' => 'Pegawai', 'employee-document' => 'Dokumen Pegawai',
+      'contract' => 'Kontrak', 'contract-type' => 'Jenis Kontrak',
+      'company-document' => 'Dokumen Perusahaan', 'attendance' => 'Presensi',
+      'attendance.shift' => 'Master Shift', 'attendance.shift.assignment' => 'Jadwal Kerja',
+      'attendance.report' => 'Rekap Presensi', 'overtime' => 'Lembur',
+      'leave' => 'Cuti / Izin', 'kpi' => 'KPI', 'task' => 'Tugas',
+      'project' => 'Proyek', 'knowledge' => 'Pengetahuan', 'payroll' => 'Payroll',
+      'payslip' => 'Slip Gaji', 'employee-cost' => 'Biaya Pegawai',
+      'bpjs-calculation' => 'Perhitungan BPJS', 'bpjs-registration' => 'Pendaftaran BPJS',
+      'business-trip' => 'Perjalanan Dinas', 'finance' => 'Keuangan',
+      'report' => 'Laporan', 'mobile-release' => 'Rilis OvallHR',
+      'ovallhr' => 'OvallHR Control', 'integration' => 'Integrasi',
+      'appbill' => 'Integrasi AppBill', 'users' => 'Akun Pengguna',
+      'user-access' => 'Akses Pengguna', 'roles' => 'Peran',
+      'role' => 'Peran', 'permissions' => 'Hak Akses', 'permission' => 'Hak Akses',
+      'menu' => 'Menu', 'settings' => 'Pengaturan', 'health' => 'Kesehatan Sistem',
+      'announcement' => 'Pengumuman', 'document' => 'Dokumen',
+      'ebupot-vendor' => 'e-Bupot Vendor', 'work-tracking' => 'Tracking Pegawai',
+    ];
+
+    $actionLabels = [
+      'view' => 'Melihat', 'create' => 'Menambah', 'store' => 'Menyimpan',
+      'update' => 'Mengubah', 'edit' => 'Mengubah', 'delete' => 'Menghapus',
+      'destroy' => 'Menghapus', 'approve' => 'Menyetujui / Menolak',
+      'publish' => 'Menerbitkan', 'print' => 'Mencetak', 'export' => 'Mengekspor',
+      'import' => 'Mengimpor', 'download' => 'Mengunduh', 'upload' => 'Mengunggah',
+      'assign' => 'Menetapkan', 'manage' => 'Mengelola', 'process' => 'Memproses',
+      'dispatch' => 'Mengirim', 'reset' => 'Mereset', 'configure' => 'Mengatur',
+      'toggle' => 'Mengaktifkan / Menonaktifkan', 'history' => 'Melihat Riwayat',
+    ];
+
+    $groupLabels = [
+      'dashboard' => 'Dashboard', 'company' => 'Perusahaan', 'branch' => 'Branch / Site',
+      'division' => 'Divisi', 'position' => 'Jabatan', 'employees' => 'Pegawai',
+      'employee' => 'Pegawai', 'attendance' => 'Presensi & Jadwal Kerja',
+      'overtime' => 'Lembur', 'leave' => 'Cuti & Izin', 'kpi' => 'KPI',
+      'task' => 'Tugas', 'project' => 'Proyek', 'knowledge' => 'Pengetahuan',
+      'payroll' => 'Payroll & Slip Gaji', 'payslip' => 'Payroll & Slip Gaji',
+      'bpjs-calculation' => 'BPJS', 'bpjs-registration' => 'BPJS',
+      'finance' => 'Keuangan', 'report' => 'Laporan', 'integration' => 'Integrasi',
+      'mobile-release' => 'OvallHR', 'ovallhr' => 'OvallHR', 'users' => 'Pengguna & Keamanan',
+      'user-access' => 'Pengguna & Keamanan', 'roles' => 'Pengguna & Keamanan',
+      'permissions' => 'Pengguna & Keamanan', 'settings' => 'Pengaturan Sistem',
+      'menu' => 'Pengaturan Sistem', 'ebupot-vendor' => 'e-Bupot Vendor',
+      'work-tracking' => 'Tracking Pegawai',
+    ];
+
+    $permissionLabel = function (string $name) use ($moduleLabels, $actionLabels) {
+      $parts = explode('.', $name);
+      $action = count($parts) > 1 ? array_pop($parts) : 'manage';
+      $resource = implode('.', $parts);
+      $module = $moduleLabels[$resource] ?? $moduleLabels[$parts[0] ?? '']
+        ?? \Illuminate\Support\Str::headline(str_replace(['.', '-', '_'], ' ', $resource ?: $name));
+      $verb = $actionLabels[$action] ?? \Illuminate\Support\Str::headline(str_replace(['-', '_'], ' ', $action));
+      return trim($verb . ' ' . $module);
+    };
+
+    $permissionLabels = $permissionGroups->flatten()->mapWithKeys(
+      fn ($permission) => [$permission->name => $permissionLabel($permission->name)]
+    );
+  @endphp
   <div class="row g-4">
     <div class="col-12">
       <div class="card">
         <div class="card-header d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
           <div>
-            <h5 class="mb-1">Role Permission</h5>
+            <h5 class="mb-1">Hak Akses Peran</h5>
             <p class="mb-0 text-muted">
-              Kelola role dan permission berdasarkan company aktif.
+              Tentukan siapa yang boleh melihat, menambah, mengubah, menghapus, atau menyetujui data pada perusahaan aktif.
             </p>
           </div>
 
@@ -19,12 +102,12 @@
 
             @can('role.create')
               <button type="button" class="btn btn-primary" id="btnCreateRole">
-                <i class="ti ti-plus me-1"></i> Tambah Role
+                <i class="ti ti-plus me-1"></i> Tambah Peran
               </button>
             @endcan
 
             <button type="button" class="btn btn-label-secondary" id="btnReloadRoles">
-              <i class="ti ti-refresh me-1"></i> Refresh
+              <i class="ti ti-refresh me-1"></i> Muat Ulang
             </button>
           </div>
         </div>
@@ -36,27 +119,27 @@
             <table class="table table-hover table-bordered align-middle" id="rolePermissionTable">
               <thead>
                 <tr>
-                  <th>Role</th>
-                  <th>Scope</th>
-                  <th>Total Permission</th>
-                  <th>Permission</th>
+                  <th>Peran</th>
+                  <th>Cakupan</th>
+                  <th>Jumlah Hak Akses</th>
+                  <th>Ringkasan yang Diizinkan</th>
                   <th>Status</th>
                   <th class="text-end">Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td colspan="6" class="text-center text-muted py-5">Loading data...</td>
+                  <td colspan="6" class="text-center text-muted py-5">Memuat data...</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
           <div class="alert alert-info mt-4 mb-0">
-            <div class="fw-medium">Catatan</div>
+            <div class="fw-medium">Cara membaca hak akses</div>
             <div>
-              Role adalah sumber utama hak akses. Divisi dan jabatan hanya membantu mapping role default.
-              Untuk akses khusus user tertentu, gunakan direct permission di menu User Access.
+              Peran menentukan menu dan tindakan yang dapat dilakukan pengguna. Divisi dan jabatan hanya membantu menetapkan peran awal.
+              Untuk pengecualian pada satu orang, gunakan izin langsung pada menu Akses Pengguna. Perubahan di sini tidak mengubah data pegawai.
             </div>
           </div>
         </div>
@@ -67,8 +150,8 @@
   <div class="offcanvas offcanvas-end" tabindex="-1" id="rolePermissionCanvas">
     <div class="offcanvas-header border-bottom">
       <div>
-        <h5 class="offcanvas-title" id="roleCanvasTitle">Role Permission</h5>
-        <small class="text-muted" id="roleCanvasSubtitle">Atur permission untuk role.</small>
+        <h5 class="offcanvas-title" id="roleCanvasTitle">Hak Akses Peran</h5>
+        <small class="text-muted" id="roleCanvasSubtitle">Atur tindakan yang boleh dilakukan peran ini.</small>
       </div>
       <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas"></button>
     </div>
@@ -77,7 +160,7 @@
       <input type="hidden" id="selectedRoleId">
 
       <div class="mb-3">
-        <label class="form-label">Nama Role</label>
+        <label class="form-label">Nama Peran</label>
         <input type="text" class="form-control" id="roleName" placeholder="contoh: area-manager">
         <div class="form-text">
           Gunakan huruf kecil, angka, titik, underscore, atau strip.
@@ -85,7 +168,7 @@
       </div>
 
       <div class="d-flex align-items-center justify-content-between mb-3">
-        <label class="form-label mb-0">Permission</label>
+        <label class="form-label mb-0">Daftar Hak Akses</label>
         <div class="d-flex gap-2">
           <button type="button" class="btn btn-sm btn-label-primary" id="btnCheckAll">
             Pilih Semua
@@ -102,7 +185,7 @@
             <h2 class="accordion-header" id="heading-{{ $groupName }}">
               <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
                 data-bs-target="#collapse-{{ $groupName }}">
-                <span class="text-capitalize">{{ $groupName }}</span>
+                <span>{{ $groupLabels[$groupName] ?? \Illuminate\Support\Str::headline($groupName) }}</span>
                 <span class="badge bg-label-primary ms-2">{{ $permissions->count() }}</span>
               </button>
             </h2>
@@ -116,7 +199,7 @@
                       <label class="form-check">
                         <input class="form-check-input permission-checkbox" type="checkbox"
                           value="{{ $permission->name }}">
-                        <span class="form-check-label">{{ $permission->name }}</span>
+                        <span class="form-check-label" title="Kode sistem: {{ $permission->name }}"><strong>{{ $permissionLabel($permission->name) }}</strong><br><small class="text-muted">{{ $permission->name }}</small></span>
                       </label>
                     </div>
                   @endforeach
@@ -129,11 +212,11 @@
 
       <div class="d-grid gap-2 mt-4">
         <button type="button" class="btn btn-primary" id="btnSaveRole">
-          Simpan Role Permission
+          Simpan Hak Akses
         </button>
 
         <button type="button" class="btn btn-label-danger d-none" id="btnDeleteRole">
-          Hapus Role
+          Hapus Peran
         </button>
       </div>
     </div>
@@ -143,6 +226,13 @@
 @section('page-script')
   <script>
     document.addEventListener('DOMContentLoaded', function() {
+      const roleLabels = @json($roleLabels);
+      const permissionLabels = @json($permissionLabels);
+      const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;'
+      })[character]);
+      const roleLabel = role => roleLabels[role] || String(role || '').replace(/[-_.]+/g, ' ')
+        .replace(/\b\w/g, letter => letter.toUpperCase());
       const tableBody = document.querySelector('#rolePermissionTable tbody');
       const alertBox = document.getElementById('rolePermissionAlert');
 
@@ -196,7 +286,7 @@
         }
 
         const visible = permissions.slice(0, 6).map(permission => {
-          return `<span class="badge bg-label-secondary me-1 mb-1">${permission}</span>`;
+          return `<span class="badge bg-label-secondary me-1 mb-1">${escapeHtml(permissionLabels[permission] || permission)}</span>`;
         }).join('');
 
         const more = permissions.length > 6 ?
@@ -208,14 +298,14 @@
 
       const scopeBadge = scope => {
         if (scope === 'global') {
-          return `<span class="badge bg-label-dark">Global</span>`;
+          return `<span class="badge bg-label-dark">Semua Perusahaan</span>`;
         }
 
-        return `<span class="badge bg-label-primary">Company</span>`;
+        return `<span class="badge bg-label-primary">Perusahaan Aktif</span>`;
       };
 
       const loadRoles = async () => {
-        tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-5">Loading data...</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-5">Memuat data...</td></tr>`;
 
         try {
           const result = await requestJson('/settings/role-permission/data');
@@ -223,25 +313,25 @@
 
           if (roles.length === 0) {
             tableBody.innerHTML =
-              `<tr><td colspan="6" class="text-center text-muted py-5">Belum ada role.</td></tr>`;
+              `<tr><td colspan="6" class="text-center text-muted py-5">Belum ada peran.</td></tr>`;
             return;
           }
 
           tableBody.innerHTML = roles.map(role => {
             const editButton = role.can_edit ?
               `<button type="button" class="btn btn-sm btn-primary btn-edit-role" data-id="${role.id}">
-              <i class="ti ti-shield-lock me-1"></i> Edit
+              <i class="ti ti-shield-lock me-1"></i> Atur Akses
             </button>` :
-              `<span class="text-muted small">Tidak bisa diedit</span>`;
+              `<span class="text-muted small">Tidak dapat diubah</span>`;
 
             const statusBadge = role.is_protected ?
-              `<span class="badge bg-label-warning">Protected</span>` :
-              `<span class="badge bg-label-success">Custom</span>`;
+              `<span class="badge bg-label-warning">Dilindungi Sistem</span>` :
+              `<span class="badge bg-label-success">Dapat Disesuaikan</span>`;
 
             return `
           <tr>
             <td>
-              <div class="fw-medium">${role.name}</div>
+              <div class="fw-medium">${escapeHtml(roleLabel(role.name))}</div><small class="text-muted">Kode: ${escapeHtml(role.name)}</small>
               <small class="text-muted">ID: ${role.id}</small>
             </td>
             <td>${scopeBadge(role.scope)}</td>
@@ -274,9 +364,9 @@
       const openCreateCanvas = () => {
         clearForm();
 
-        roleCanvasTitle.textContent = 'Tambah Role';
-        roleCanvasSubtitle.textContent = 'Buat role custom untuk company aktif.';
-        btnSaveRole.textContent = 'Buat Role';
+        roleCanvasTitle.textContent = 'Tambah Peran';
+        roleCanvasSubtitle.textContent = 'Buat peran khusus untuk perusahaan aktif.';
+        btnSaveRole.textContent = 'Buat Peran';
 
         canvas.show();
       };
@@ -289,8 +379,8 @@
 
           selectedRoleId.value = result.role.id;
           roleName.value = result.role.name;
-          roleCanvasTitle.textContent = `Edit Role: ${result.role.name}`;
-          roleCanvasSubtitle.textContent = `Scope: ${result.role.scope}`;
+          roleCanvasTitle.textContent = `Atur Akses: ${roleLabel(result.role.name)}`;
+          roleCanvasSubtitle.textContent = result.role.scope === 'global' ? 'Cakupan: Semua perusahaan' : 'Cakupan: Perusahaan aktif';
           btnSaveRole.textContent = 'Simpan Perubahan';
 
           if (!result.role.is_protected) {
@@ -322,7 +412,7 @@
         };
 
         if (!payload.name) {
-          showAlert('danger', 'Nama role wajib diisi.');
+          showAlert('danger', 'Nama peran wajib diisi.');
           return;
         }
 
@@ -352,7 +442,7 @@
           return;
         }
 
-        const confirmed = confirm('Yakin hapus role ini? Role yang masih dipakai user tidak bisa dihapus.');
+        const confirmed = confirm('Yakin menghapus peran ini? Peran yang masih dipakai pengguna tidak dapat dihapus.');
 
         if (!confirmed) {
           return;
