@@ -29,6 +29,8 @@
 
 {{-- Kartu ditampilkan sesuai permission: HR melihat yang relevan, Owner/Developer melihat seluruh kontrol. --}}
 <div class="row g-4 mb-4">
+  @can('attendance.view')<div class="col-md-6 col-xl-3"><a class="card h-100 text-decoration-none" href="{{ route('hr.cleaning-duty.index') }}"><div class="card-body"><i class="ti ti-broom text-primary fs-2"></i><h5 class="mt-3 mb-1">Jadwal Piket Divisi</h5><p class="text-muted mb-0 small">Jadwal, pengumuman otomatis, dan rekap pelaksanaan piket.</p></div></a></div>@endcan
+
   @can('employees.view')<div class="col-md-6 col-xl-3"><a class="card h-100 text-decoration-none" href="{{ route('employees.index') }}"><div class="card-body"><i class="ti ti-users text-primary fs-2"></i><h5 class="mt-3 mb-1">Pegawai & Akun</h5><p class="text-muted mb-0 small">Data pegawai yang dapat masuk ke OvallHR.</p></div></a></div>@endcan
   @can('attendance.view')<div class="col-md-6 col-xl-3"><a class="card h-100 text-decoration-none" href="{{ route('hr.settings.index') }}"><div class="card-body"><i class="ti ti-shield-check text-primary fs-2"></i><h5 class="mt-3 mb-1">Aturan Presensi</h5><p class="text-muted mb-0 small">GPS, selfie, radius kantor, retention, dan tanggal gaji.</p></div></a></div>@endcan
   @if(auth()->user()->is_developer)<div class="col-md-6 col-xl-3"><a class="card h-100 text-decoration-none" href="{{ route('hr.attendance-locations.index') }}"><div class="card-body"><i class="ti ti-map-pin-cog text-primary fs-2"></i><h5 class="mt-3 mb-1">Lokasi Presensi</h5><p class="text-muted mb-0 small">Titik PT OSM, site/branch, dan divisi bebas lokasi.</p></div></a></div>@endif

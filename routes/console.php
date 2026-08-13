@@ -58,3 +58,4 @@ Artisan::command('oems:sync-mobile-accounts {--company=}', function () {
 
     $this->info("Selesai: {$created} akun ditautkan, {$failed} gagal.");
 })->purpose('Create or link OvallHR accounts for active employees with email');
+Schedule::call(fn () => app(\App\Services\Employee\CleaningDutyPublisher::class)->publishForToday())->name('publish-cleaning-duty')->everyFifteenMinutes()->withoutOverlapping();

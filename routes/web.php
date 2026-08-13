@@ -143,6 +143,14 @@ Route::middleware([
   Route::put('/ovallhr-control/birthday', [\App\Http\Controllers\OvallHr\OvallHrControlCenterController::class, 'updateBirthdaySettings'])
     ->middleware('permission:mobile-release.manage')
     ->name('ovallhr.control-center.birthday.update');
+  Route::get('/hr/cleaning-duty', [\App\Http\Controllers\HR\CleaningDutyController::class, 'index'])->middleware('permission:attendance.view')->name('hr.cleaning-duty.index');
+  Route::post('/hr/cleaning-duty', [\App\Http\Controllers\HR\CleaningDutyController::class, 'store'])->middleware('permission:attendance.shift.assignment.manage')->name('hr.cleaning-duty.store');
+  Route::post('/hr/cleaning-duty/{schedule}/toggle', [\App\Http\Controllers\HR\CleaningDutyController::class, 'toggle'])->middleware('permission:attendance.shift.assignment.manage')->name('hr.cleaning-duty.toggle');
+  Route::delete('/hr/cleaning-duty/{schedule}', [\App\Http\Controllers\HR\CleaningDutyController::class, 'destroy'])->middleware('permission:attendance.shift.assignment.manage')->name('hr.cleaning-duty.destroy');
+  Route::post('/hr/cleaning-duty/logs/{log}/complete', [\App\Http\Controllers\HR\CleaningDutyController::class, 'complete'])->middleware('permission:attendance.shift.assignment.manage')->name('hr.cleaning-duty.complete');
+  Route::post('/hr/cleaning-duty/{schedule}/items', [\App\Http\Controllers\HR\CleaningDutyController::class, 'addItem'])->middleware('permission:attendance.shift.assignment.manage')->name('hr.cleaning-duty.items.store');
+  Route::put('/hr/cleaning-duty/items/{item}', [\App\Http\Controllers\HR\CleaningDutyController::class, 'updateItem'])->middleware('permission:attendance.shift.assignment.manage')->name('hr.cleaning-duty.items.update');
+  Route::delete('/hr/cleaning-duty/items/{item}', [\App\Http\Controllers\HR\CleaningDutyController::class, 'deleteItem'])->middleware('permission:attendance.shift.assignment.manage')->name('hr.cleaning-duty.items.destroy');
 
   Route::prefix('settings')->name('settings.')->group(function () {
     Route::get('/user-access', [UserAccessController::class, 'index'])

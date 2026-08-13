@@ -15,11 +15,15 @@ class MobileAnnouncement extends Model
 {
     protected $fillable = [
         'company_id',
+        'division_id',
+        'employee_id',
         'title',
         'message',
         'is_active',
         'published_at',
         'expires_at',
+        'source_type',
+        'source_id',
     ];
 
     protected function casts(): array

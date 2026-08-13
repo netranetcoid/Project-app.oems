@@ -98,6 +98,8 @@ class EmployeeHomeController extends Controller
             'announcements' => MobileAnnouncement::query()
                 ->where('company_id', $employee->company_id)
                 ->activeForMobile()
+                ->where(fn ($audience) => $audience->whereNull('employee_id')
+                    ->orWhere('employee_id', $employee->id))
                 ->latest('published_at')
                 ->limit(10)
                 ->get()

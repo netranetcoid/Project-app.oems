@@ -140,6 +140,7 @@ class MenuSeeder extends Seeder
         $this->child($modules['employee'] ?? null, $hr, 'bpjs-readiness', 'BPJS & Kepatuhan', 'hr.bpjs-readiness.index', 'bpjs-registration.view', 9, 'ri ri-shield-check-line');
         // Laporan hanya membaca data company aktif dan memerlukan report.view.
         $this->child($modules['payroll'] ?? null, $hr, 'hr-compliance-report', 'Laporan Kepatuhan', 'hr.reports.compliance.index', 'report.view', 10, 'ri ri-file-chart-line');
+        $this->child($modules['attendance'] ?? null, $hr, 'cleaning-duty', 'Jadwal Piket', 'hr.cleaning-duty.index', 'attendance.view', 11, 'ri ri-broom-line');
 
         foreach ([
             ['isp-ticketing', 'Ticket & SLA', 'ri ri-customer-service-2-line'],
