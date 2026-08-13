@@ -135,6 +135,7 @@ class UpdateEmployeeRequest extends FormRequest
             */
 
             'basic_salary' => 'nullable|numeric|min:0',
+            'fixed_allowance' => 'nullable|numeric|min:0',
 
             'meal_allowance' => 'nullable|numeric|min:0',
 
@@ -204,6 +205,7 @@ class UpdateEmployeeRequest extends FormRequest
             'work_status' => 'Status Kerja',
 
             'basic_salary' => 'Gaji Pokok',
+            'fixed_allowance' => 'Tunjangan Tetap (Dasar BPJS)',
 
             'meal_allowance' => 'Uang Makan',
 

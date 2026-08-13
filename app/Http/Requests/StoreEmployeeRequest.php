@@ -69,6 +69,7 @@ class StoreEmployeeRequest extends FormRequest
 
             // Payroll
             'basic_salary' => 'nullable|numeric|min:0',
+            'fixed_allowance' => 'nullable|numeric|min:0',
             'meal_allowance' => 'nullable|numeric|min:0',
             'transport_allowance' => 'nullable|numeric|min:0',
             'position_allowance' => 'nullable|numeric|min:0',
@@ -108,6 +109,7 @@ class StoreEmployeeRequest extends FormRequest
             'work_status' => 'Status Kerja',
 
             'basic_salary' => 'Gaji Pokok',
+            'fixed_allowance' => 'Tunjangan Tetap (Dasar BPJS)',
             'meal_allowance' => 'Uang Makan',
             'transport_allowance' => 'Uang Transport',
             'position_allowance' => 'Tunjangan Jabatan',
