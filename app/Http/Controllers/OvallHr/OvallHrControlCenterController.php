@@ -8,6 +8,7 @@ use App\Models\MobileAnnouncement;
 use App\Models\Employee;
 use App\Models\EmployeeTask;
 use App\Models\EmployeeWorkLocationTrack;
+use App\Services\Attendance\WorkTrackingRouteFilter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -83,6 +84,12 @@ class OvallHrControlCenterController extends Controller
             'welcome_text' => ['nullable', 'string', 'max:160'],
             'primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'secondary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'navigation_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'attendance_action_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'quick_menu_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
+            'attendance_early_message' => ['required', 'string', 'max:300'],
+            'attendance_on_time_message' => ['required', 'string', 'max:300'],
+            'attendance_late_message' => ['required', 'string', 'max:300'],
             'logo_url' => ['nullable', 'url', 'max:2048'],
             'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
@@ -109,6 +116,12 @@ class OvallHrControlCenterController extends Controller
             'welcome_text' => $data['welcome_text'] ?? null,
             'primary_color' => strtoupper($data['primary_color']),
             'secondary_color' => strtoupper($data['secondary_color']),
+            'navigation_color' => strtoupper($data['navigation_color']),
+            'attendance_action_color' => strtoupper($data['attendance_action_color']),
+            'quick_menu_color' => strtoupper($data['quick_menu_color']),
+            'attendance_early_message' => $data['attendance_early_message'],
+            'attendance_on_time_message' => $data['attendance_on_time_message'],
+            'attendance_late_message' => $data['attendance_late_message'],
         ]);
         $settings = is_array($company->settings) ? $company->settings : [];
         $settings['mobile_branding'] = $branding;
@@ -135,7 +148,6 @@ class OvallHrControlCenterController extends Controller
         $employeeId = $request->integer('employee_id');
         $company = Company::query()->findOrFail($companyId);
         $timezone = $company->timezone ?: 'Asia/Jakarta';
-        // Default tanggal mengikuti jam perusahaan, bukan jam UTC VPS.
         $date = $request->date('date')?->toDateString() ?: now($timezone)->toDateString();
         $dayStart = \Carbon\Carbon::parse($date, $timezone)->startOfDay()->utc();
         $dayEnd = \Carbon\Carbon::parse($date, $timezone)->endOfDay()->utc();
@@ -154,21 +166,27 @@ class OvallHrControlCenterController extends Controller
         $activeTasks = EmployeeTask::query()->where('company_id', $companyId)
             ->whereIn('employee_id', $tracks->pluck('employee_id')->unique())
             ->where('status', 'in_progress')->get()->keyBy('employee_id');
+        // Data mentah tetap tersimpan; layar HR hanya memakai jalur GPS yang
+        // lolos akurasi, noise radius, kecepatan, dan pemeriksaan spike.
+        $tracks = app(WorkTrackingRouteFilter::class)->filter($tracks);
         $journeys = $this->workJourneys($tracks, $timezone);
-        // Browser HR menyegarkan peta hanya ketika ada sesi yang masih aktif.
-        $hasActiveJourneys = $journeys->contains(fn (array $journey): bool => $journey['is_active']);
 
         return view('ovallhr.control-center.work-tracking', compact(
-            'employees', 'tracks', 'journeys', 'activeTasks', 'employeeId', 'date', 'timezone', 'hasActiveJourneys',
+            'employees', 'tracks', 'journeys', 'activeTasks', 'employeeId', 'date', 'timezone',
         ));
     }
 
     /** Ringkasan perjalanan harian untuk review HR, bukan tagihan bensin otomatis. */
     private function workJourneys(Collection $tracks, string $timezone): Collection
     {
+        // A session can remain open after the phone stops sending GPS. Keep
+        // attendance state, but expose heartbeat age so HR never mistakes an
+        // old point for a live position.
+        $staleAfterSeconds = 180;
+
         return $tracks->groupBy(function (EmployeeWorkLocationTrack $track): string {
             return implode(':', [$track->employee_id, $track->work_mode, $track->attendance_id ?: 0, $track->overtime_attendance_id ?: 0]);
-        })->map(function (Collection $session) use ($timezone): array {
+        })->map(function (Collection $session) use ($timezone, $staleAfterSeconds): array {
             $first = $session->first();
             $last = $session->last();
             // Titik berurutan yang masih berada dalam radius 35 m dari titik
@@ -189,9 +207,13 @@ class OvallHrControlCenterController extends Controller
             $stopSeconds = max(0, $stopStart->captured_at->diffInSeconds($last->captured_at));
             $startedAt = $first->captured_at->copy()->setTimezone($timezone);
             $endedAt = $last->captured_at->copy()->setTimezone($timezone);
+            $lastSeenAgeSeconds = max(0, (int) $endedAt->diffInSeconds(now($timezone)));
             $status = $session->contains('integrity_status', 'blocked')
                 ? 'blocked'
                 : ($session->contains('integrity_status', 'review') ? 'review' : 'accepted');
+            $isActive = $first->work_mode === 'overtime'
+                ? $last->overtimeAttendance?->clock_out_at === null
+                : $last->attendance?->clock_out_at === null;
 
             return [
                 'employee_name' => $first->employee?->name ?: 'Pegawai',
@@ -202,19 +224,19 @@ class OvallHrControlCenterController extends Controller
                 'started_at' => $startedAt,
                 'ended_at' => $endedAt,
                 'duration_seconds' => max(0, $first->captured_at->diffInSeconds($last->captured_at)),
-                'distance_km' => round($session->sum('distance_from_previous_meters') / 1000, 2),
+                'distance_km' => round(app(WorkTrackingRouteFilter::class)->distanceMetersFor($session) / 1000, 2),
                 'point_count' => $session->count(),
                 'integrity_status' => $status,
                 'last_latitude' => (float) $last->latitude,
                 'last_longitude' => (float) $last->longitude,
                 'last_seen_at' => $endedAt,
+                'last_seen_age_seconds' => $lastSeenAgeSeconds,
+                'is_stale' => $isActive && $lastSeenAgeSeconds > $staleAfterSeconds,
                 // Status berhenti baru ditampilkan setelah 10 menit agar HR
                 // tidak menerima sinyal "berhenti" hanya karena GPS diam sesaat.
                 'is_stopped' => $stopSeconds >= 600,
                 'stop_seconds' => $stopSeconds,
-                'is_active' => $first->work_mode === 'overtime'
-                    ? $last->overtimeAttendance?->clock_out_at === null
-                    : $last->attendance?->clock_out_at === null,
+                'is_active' => $isActive,
             ];
         })->values();
     }
@@ -264,6 +286,9 @@ class OvallHrControlCenterController extends Controller
             'welcome_text' => 'Employee Self Service',
             'primary_color' => '#2563EB',
             'secondary_color' => '#0F2747',
+            'attendance_early_message' => 'Mantap, kamu datang lebih awal! 🌟 Siapkan hari terbaikmu dan tetap semangat.',
+            'attendance_on_time_message' => 'Presensi tepat waktu! ✅ Selamat bekerja, jaga fokus dan kerja sama hari ini.',
+            'attendance_late_message' => 'Kamu terlambat hari ini. ⏰ Besok berangkat lebih awal ya, agar performa dan tim tetap terjaga.',
             'logo_url' => null,
             'logo_path' => null,
         ], is_array($settings['mobile_branding'] ?? null) ? $settings['mobile_branding'] : []);

@@ -7,6 +7,7 @@ use App\Models\Attendance;
 use App\Models\EmployeeWorkLocationTrack;
 use App\Models\OvertimeAttendance;
 use App\Services\Attendance\AttendanceProofService;
+use App\Services\Attendance\WorkTrackingRouteFilter;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -124,7 +125,7 @@ class EmployeeWorkTrackingController extends Controller
         return response()->json([
             'items' => $tracks->map(fn (EmployeeWorkLocationTrack $point) => $this->mobilePoint($point)),
             'journeys' => $this->journeys($tracks, $timezone),
-            'total_distance_km' => round($tracks->sum('distance_from_previous_meters') / 1000, 2),
+            'total_distance_km' => round(app(WorkTrackingRouteFilter::class)->distanceMetersFor($tracks) / 1000, 2),
         ]);
     }
 
@@ -231,7 +232,7 @@ class EmployeeWorkTrackingController extends Controller
                 'started_at' => $started->toIso8601String(),
                 'ended_at' => $ended->toIso8601String(),
                 'duration_seconds' => max(0, $first->captured_at->diffInSeconds($last->captured_at)),
-                'distance_km' => round($session->sum('distance_from_previous_meters') / 1000, 2),
+                'distance_km' => round(app(WorkTrackingRouteFilter::class)->distanceMetersFor($session) / 1000, 2),
                 'point_count' => $session->count(),
                 'integrity_status' => $session->contains('integrity_status', 'blocked')
                     ? 'blocked'
