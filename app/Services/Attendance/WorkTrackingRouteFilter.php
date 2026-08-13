@@ -6,25 +6,25 @@ use App\Models\EmployeeWorkLocationTrack;
 use Illuminate\Support\Collection;
 
 /**
- * Menyaring GPS drift tanpa menghapus bukti mentah.
+ * Membentuk rute stabil dari sampel GPS mentah.
  *
- * Kilometer dan garis peta hanya memakai titik yang cukup akurat, bergerak
- * melewati lingkar ketidakpastian GPS, dan memiliki kecepatan masuk akal.
+ * Sampel mentah tidak dihapus. Tampilan HR memakai median per jendela waktu,
+ * dead-zone saat diam, serta batas kecepatan agar GPS drift tidak menjadi km.
  */
 class WorkTrackingRouteFilter
 {
-    private const MAX_ACCURACY_METERS = 60.0;
-    private const MAX_SPEED_METERS_PER_SECOND = 35.0;
-    private const MIN_NOISE_RADIUS_METERS = 35.0;
+    private const MAX_ACCURACY_METERS = 50.0;
+    private const WINDOW_SECONDS = 60;
+    private const MIN_MOVE_METERS = 65.0;
+    private const MIN_MOVE_SPEED_MPS = 0.75;
+    private const MAX_MOVE_SPEED_MPS = 35.0;
 
     public function filter(Collection $tracks): Collection
     {
-        return $tracks
-            ->sortBy('captured_at')
+        return $tracks->sortBy('captured_at')
             ->groupBy(fn (EmployeeWorkLocationTrack $track): string => $this->sessionKey($track))
-            ->flatMap(fn (Collection $session): Collection => $this->filterSession($session))
-            ->sortBy('captured_at')
-            ->values();
+            ->flatMap(fn (Collection $session): Collection => $this->stableSession($session))
+            ->sortBy('captured_at')->values();
     }
 
     public function distanceMetersFor(Collection $tracks): float
@@ -40,105 +40,110 @@ class WorkTrackingRouteFilter
                     }
                     $previous = $point;
                 }
-
                 return $distance;
             });
     }
 
-    private function filterSession(Collection $session): Collection
+    private function stableSession(Collection $session): Collection
     {
-        $result = collect();
-        $anchor = null;
+        $usable = $session->sortBy('captured_at')->filter(fn (EmployeeWorkLocationTrack $point): bool =>
+            $point->integrity_status !== 'blocked'
+            && (float) $point->accuracy_meters > 0
+            && (float) $point->accuracy_meters <= self::MAX_ACCURACY_METERS
+        )->values();
 
-        foreach ($session->sortBy('captured_at') as $point) {
-            if ($point->integrity_status === 'blocked' || ! $this->hasUsableAccuracy($point)) {
-                continue;
-            }
-
-            if (! $anchor) {
-                $result->push($point);
-                $anchor = $point;
-                continue;
-            }
-
-            $seconds = max(1, $anchor->captured_at->diffInSeconds($point->captured_at));
-            $distance = $this->distanceMeters($anchor, $point);
-            $noiseRadius = max(
-                self::MIN_NOISE_RADIUS_METERS,
-                min(90.0, (float) $anchor->accuracy_meters + (float) $point->accuracy_meters),
-            );
-
-            // Diam di satu tempat: sampel bergeser karena ketidakpastian GPS.
-            if ($distance <= $noiseRadius) {
-                continue;
-            }
-
-            // Lompatan GPS/fake route yang tidak mungkin dicapai pada intervalnya.
-            if (($distance / $seconds) > self::MAX_SPEED_METERS_PER_SECOND) {
-                continue;
-            }
-
-            $result->push($point);
-            $anchor = $point;
+        if ($usable->isEmpty()) {
+            return collect();
         }
 
-        return $this->removeReturnSpikes($result);
+        $origin = $usable->first()->captured_at->copy();
+        $representatives = $usable->groupBy(function (EmployeeWorkLocationTrack $point) use ($origin): int {
+            return intdiv(max(0, $origin->diffInSeconds($point->captured_at)), self::WINDOW_SECONDS);
+        })->map(fn (Collection $window): EmployeeWorkLocationTrack => $this->medoid($window))->values();
+
+        $route = collect([$representatives->first()]);
+        $anchor = $representatives->first();
+        foreach ($representatives->slice(1) as $candidate) {
+            $seconds = max(1, $anchor->captured_at->diffInSeconds($candidate->captured_at));
+            $distance = $this->distanceMeters($anchor, $candidate);
+            $uncertainty = min(100.0, max(
+                self::MIN_MOVE_METERS,
+                ((float) $anchor->accuracy_meters + (float) $candidate->accuracy_meters) * 1.5,
+            ));
+            $speed = $distance / $seconds;
+
+            // Hanya perpindahan konsisten di luar lingkar ketidakpastian yang
+            // menjadi rute. Drift lambat maupun loncatan cepat tidak dihitung.
+            if ($distance < $uncertainty
+                || $speed < self::MIN_MOVE_SPEED_MPS
+                || $speed > self::MAX_MOVE_SPEED_MPS) {
+                continue;
+            }
+
+            $route->push($candidate);
+            $anchor = $candidate;
+        }
+
+        // Posisi akhir hanya ditambahkan bila benar-benar berpindah. Saat HP
+        // diam, marker bertahan pada medoid stabil dan tidak membuat garis baru.
+        return $this->removeTriangleNoise($route)->values();
     }
 
-    private function removeReturnSpikes(Collection $points): Collection
+    private function medoid(Collection $window): EmployeeWorkLocationTrack
     {
-        if ($points->count() < 3) {
-            return $points->values();
-        }
+        $latitude = $this->median($window->pluck('latitude')->map(fn ($v) => (float) $v)->all());
+        $longitude = $this->median($window->pluck('longitude')->map(fn ($v) => (float) $v)->all());
 
+        return $window->sortBy(function (EmployeeWorkLocationTrack $point) use ($latitude, $longitude): float {
+            return $this->distanceCoordinates((float) $point->latitude, (float) $point->longitude, $latitude, $longitude);
+        })->first();
+    }
+
+    private function removeTriangleNoise(Collection $points): Collection
+    {
+        if ($points->count() < 3) return $points;
         $items = $points->values()->all();
         $clean = [$items[0]];
-        for ($index = 1; $index < count($items) - 1; $index++) {
+        for ($i = 1; $i < count($items) - 1; $i++) {
             $before = $clean[array_key_last($clean)];
-            $current = $items[$index];
-            $after = $items[$index + 1];
-            $out = $this->distanceMeters($before, $current);
-            $back = $this->distanceMeters($current, $after);
-            $net = $this->distanceMeters($before, $after);
-
-            // Pola A -> titik jauh -> kembali dekat A adalah spike, bukan perjalanan.
-            if ($out > 100 && $back > 100 && $net < 70) {
+            $current = $items[$i];
+            $after = $items[$i + 1];
+            if ($this->distanceMeters($before, $current) > 100
+                && $this->distanceMeters($current, $after) > 100
+                && $this->distanceMeters($before, $after) < 80) {
                 continue;
             }
             $clean[] = $current;
         }
         $clean[] = $items[array_key_last($items)];
-
-        return collect($clean)->unique('id')->values();
+        return collect($clean)->unique('id');
     }
 
-    private function hasUsableAccuracy(EmployeeWorkLocationTrack $track): bool
+    private function median(array $values): float
     {
-        $accuracy = (float) $track->accuracy_meters;
-
-        return $accuracy > 0 && $accuracy <= self::MAX_ACCURACY_METERS;
+        sort($values, SORT_NUMERIC);
+        $count = count($values);
+        $middle = intdiv($count, 2);
+        return $count % 2 ? $values[$middle] : (($values[$middle - 1] + $values[$middle]) / 2);
     }
 
     private function sessionKey(EmployeeWorkLocationTrack $track): string
     {
-        return implode(':', [
-            $track->employee_id,
-            $track->work_mode,
-            $track->attendance_id ?: 0,
-            $track->overtime_attendance_id ?: 0,
-        ]);
+        return implode(':', [$track->employee_id, $track->work_mode, $track->attendance_id ?: 0, $track->overtime_attendance_id ?: 0]);
     }
 
     private function distanceMeters(EmployeeWorkLocationTrack $a, EmployeeWorkLocationTrack $b): float
     {
-        $earthRadius = 6_371_000;
-        $latDifference = deg2rad((float) $b->latitude - (float) $a->latitude);
-        $lonDifference = deg2rad((float) $b->longitude - (float) $a->longitude);
-        $value = sin($latDifference / 2) ** 2
-            + cos(deg2rad((float) $a->latitude))
-            * cos(deg2rad((float) $b->latitude))
-            * sin($lonDifference / 2) ** 2;
+        return $this->distanceCoordinates((float) $a->latitude, (float) $a->longitude, (float) $b->latitude, (float) $b->longitude);
+    }
 
+    private function distanceCoordinates(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earthRadius = 6_371_000;
+        $latDifference = deg2rad($lat2 - $lat1);
+        $lonDifference = deg2rad($lon2 - $lon1);
+        $value = sin($latDifference / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($lonDifference / 2) ** 2;
         return $earthRadius * 2 * atan2(sqrt($value), sqrt(max(0, 1 - $value)));
     }
 }
