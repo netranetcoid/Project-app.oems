@@ -611,6 +611,12 @@ Route::prefix('hr')
                 ->middleware('permission:payroll.approve')->name('approve');
             Route::post('/periods/{period}/publish', [\App\Http\Controllers\HR\PayrollController::class, 'publish'])
                 ->middleware('permission:payroll.publish')->name('publish');
+            Route::get('/periods/{period}/export', [\App\Http\Controllers\HR\PayrollController::class, 'export'])
+                ->middleware('permission:payroll.view')->name('export');
+            Route::post('/slips/{slip}/mark-paid', [\App\Http\Controllers\HR\PayrollController::class, 'markPaid'])
+                ->middleware('permission:payroll.approve')->name('mark-paid');
+            Route::delete('/slips/{slip}/payment', [\App\Http\Controllers\HR\PayrollController::class, 'undoPayment'])
+                ->middleware('permission:payroll.approve')->name('undo-payment');
             Route::get('/slips/{slip}/print', [\App\Http\Controllers\HR\PayrollController::class, 'payslip'])
                 ->middleware('permission:payroll.view')->name('payslip');
         });

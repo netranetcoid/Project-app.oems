@@ -25,6 +25,7 @@ class PayrollSlip extends Model
         'jkk' => 'decimal:2', 'jkm' => 'decimal:2', 'total_company_burden' => 'decimal:2',
         'kpi_bonus' => 'decimal:2', 'kpi_payment_date' => 'date',
         'approved_at' => 'datetime', 'published_at' => 'datetime',
+        'paid_at' => 'datetime',
         'calculation_snapshot' => 'array',
     ];
 
