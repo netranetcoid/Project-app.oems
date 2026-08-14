@@ -38,15 +38,15 @@ class AuthController extends Controller
         }
 
         $client = (string) ($request->input('client') ?: $request->input('device_name') ?: 'ovallhr_mobile');
-        $access = $user->createToken($client, ['mobile'], now()->addMinutes(15));
-        $refresh = $user->createToken($client . '_refresh', ['mobile:refresh'], now()->addDays(30));
+        $access = $user->createToken($client, ['mobile'], now()->addDays(30));
+        $refresh = $user->createToken($client . '_refresh', ['mobile:refresh'], now()->addDays(90));
 
         return response()->json([
             'status' => 'success',
             'data' => [
                 'access_token' => $access->plainTextToken,
                 'refresh_token' => $refresh->plainTextToken,
-                'expires_in' => 900,
+                'expires_in' => 2592000,
                 // Null berarti akun baru/reset masih memakai sandi sementara.
                 'must_change_password' => $user->password_changed_at === null,
                 'user' => $user,
@@ -62,13 +62,13 @@ class AuthController extends Controller
         $user = $request->user();
         $client = str_replace('_refresh', '', (string) $token->name) ?: 'ovallhr_mobile';
         $token->delete();
-        $access = $user->createToken($client, ['mobile'], now()->addMinutes(15));
-        $refresh = $user->createToken($client . '_refresh', ['mobile:refresh'], now()->addDays(30));
+        $access = $user->createToken($client, ['mobile'], now()->addDays(30));
+        $refresh = $user->createToken($client . '_refresh', ['mobile:refresh'], now()->addDays(90));
 
         return response()->json(['data' => [
             'access_token' => $access->plainTextToken,
             'refresh_token' => $refresh->plainTextToken,
-            'expires_in' => 900,
+            'expires_in' => 2592000,
         ]]);
     }
 
@@ -123,13 +123,13 @@ class AuthController extends Controller
         // Revoke every existing mobile token. The response below is the only
         // session that survives the password replacement.
         $user->tokens()->delete();
-        $access = $user->createToken($client, ['mobile'], now()->addMinutes(15));
-        $refresh = $user->createToken($client . '_refresh', ['mobile:refresh'], now()->addDays(30));
+        $access = $user->createToken($client, ['mobile'], now()->addDays(30));
+        $refresh = $user->createToken($client . '_refresh', ['mobile:refresh'], now()->addDays(90));
 
         return response()->json(['data' => [
             'access_token' => $access->plainTextToken,
             'refresh_token' => $refresh->plainTextToken,
-            'expires_in' => 900,
+            'expires_in' => 2592000,
             'must_change_password' => false,
         ]]);
     }
