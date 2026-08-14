@@ -6,18 +6,16 @@ use App\Models\EmployeeWorkLocationTrack;
 use Illuminate\Support\Collection;
 
 /**
- * Membentuk rute stabil dari sampel GPS mentah.
- *
- * Sampel mentah tidak dihapus. Tampilan HR memakai median per jendela waktu,
- * dead-zone saat diam, serta batas kecepatan agar GPS drift tidak menjadi km.
+ * Menyaring drift GPS tanpa menghilangkan perjalanan nyata.
+ * Data mentah tidak pernah diubah atau dihapus.
  */
 class WorkTrackingRouteFilter
 {
-    private const MAX_ACCURACY_METERS = 50.0;
-    private const WINDOW_SECONDS = 60;
-    private const MIN_MOVE_METERS = 65.0;
-    private const MIN_MOVE_SPEED_MPS = 0.75;
-    private const MAX_MOVE_SPEED_MPS = 35.0;
+    private const MAX_ACCURACY_METERS = 80.0;
+    private const WINDOW_SECONDS = 30;
+    private const MIN_CONFIRMED_MOVE_METERS = 50.0;
+    private const MIN_ROUTE_STEP_METERS = 15.0;
+    private const MAX_MOVE_SPEED_MPS = 55.0;
 
     public function filter(Collection $tracks): Collection
     {
@@ -35,9 +33,7 @@ class WorkTrackingRouteFilter
                 $distance = 0.0;
                 $previous = null;
                 foreach ($session as $point) {
-                    if ($previous) {
-                        $distance += $this->distanceMeters($previous, $point);
-                    }
+                    if ($previous) $distance += $this->distanceMeters($previous, $point);
                     $previous = $point;
                 }
                 return $distance;
@@ -46,46 +42,68 @@ class WorkTrackingRouteFilter
 
     private function stableSession(Collection $session): Collection
     {
-        $usable = $session->sortBy('captured_at')->filter(fn (EmployeeWorkLocationTrack $point): bool =>
-            $point->integrity_status !== 'blocked'
-            && (float) $point->accuracy_meters > 0
-            && (float) $point->accuracy_meters <= self::MAX_ACCURACY_METERS
-        )->values();
+        $usable = $session->sortBy('captured_at')->filter(function (EmployeeWorkLocationTrack $point): bool {
+            $accuracy = (float) $point->accuracy_meters;
+            return $point->integrity_status !== 'blocked'
+                && $accuracy > 0
+                && $accuracy <= self::MAX_ACCURACY_METERS;
+        })->values();
 
-        if ($usable->isEmpty()) {
-            return collect();
-        }
+        if ($usable->isEmpty()) return collect();
 
         $origin = $usable->first()->captured_at->copy();
         $representatives = $usable->groupBy(function (EmployeeWorkLocationTrack $point) use ($origin): int {
             return intdiv(max(0, $origin->diffInSeconds($point->captured_at)), self::WINDOW_SECONDS);
         })->map(fn (Collection $window): EmployeeWorkLocationTrack => $this->medoid($window))->values();
 
+        if ($representatives->count() < 2) return $representatives;
+
         $route = collect([$representatives->first()]);
         $anchor = $representatives->first();
-        foreach ($representatives->slice(1) as $candidate) {
-            $seconds = max(1, $anchor->captured_at->diffInSeconds($candidate->captured_at));
-            $distance = $this->distanceMeters($anchor, $candidate);
-            $uncertainty = min(100.0, max(
-                self::MIN_MOVE_METERS,
-                ((float) $anchor->accuracy_meters + (float) $candidate->accuracy_meters) * 1.5,
-            ));
-            $speed = $distance / $seconds;
+        $previousSample = $representatives->first();
+        $pending = collect();
 
-            // Hanya perpindahan konsisten di luar lingkar ketidakpastian yang
-            // menjadi rute. Drift lambat maupun loncatan cepat tidak dihitung.
-            if ($distance < $uncertainty
-                || $speed < self::MIN_MOVE_SPEED_MPS
-                || $speed > self::MAX_MOVE_SPEED_MPS) {
+        foreach ($representatives->slice(1) as $candidate) {
+            // Kecepatan harus dibandingkan dengan sampel sebelumnya. Jika
+            // dibandingkan dengan anchor lama setelah berhenti berjam-jam,
+            // perjalanan nyata akan keliru dianggap terlalu lambat.
+            $seconds = max(1, $previousSample->captured_at->diffInSeconds($candidate->captured_at));
+            $stepDistance = $this->distanceMeters($previousSample, $candidate);
+            $stepSpeed = $stepDistance / $seconds;
+            $uncertainty = min(45.0, max(
+                self::MIN_ROUTE_STEP_METERS,
+                (((float) $previousSample->accuracy_meters + (float) $candidate->accuracy_meters) / 2) * 0.8,
+            ));
+
+            if ($stepSpeed > self::MAX_MOVE_SPEED_MPS) {
+                $pending = collect();
+                $previousSample = $candidate;
                 continue;
             }
 
-            $route->push($candidate);
-            $anchor = $candidate;
+            if ($stepDistance >= $uncertainty) {
+                $pending->push($candidate);
+                $confirmedDistance = $this->distanceMeters($anchor, $candidate);
+
+                // Dua jendela bergerak dan sedikitnya 50 meter diperlukan
+                // agar drift acak saat perangkat diam tidak menjadi rute.
+                if ($pending->count() >= 2 && $confirmedDistance >= self::MIN_CONFIRMED_MOVE_METERS) {
+                    foreach ($pending as $confirmed) {
+                        $last = $route->last();
+                        if ($this->distanceMeters($last, $confirmed) >= self::MIN_ROUTE_STEP_METERS) {
+                            $route->push($confirmed);
+                        }
+                    }
+                    $anchor = $route->last();
+                    $pending = collect();
+                }
+            } else {
+                $pending = collect();
+            }
+
+            $previousSample = $candidate;
         }
 
-        // Posisi akhir hanya ditambahkan bila benar-benar berpindah. Saat HP
-        // diam, marker bertahan pada medoid stabil dan tidak membuat garis baru.
         return $this->removeTriangleNoise($route)->values();
     }
 
@@ -93,10 +111,9 @@ class WorkTrackingRouteFilter
     {
         $latitude = $this->median($window->pluck('latitude')->map(fn ($v) => (float) $v)->all());
         $longitude = $this->median($window->pluck('longitude')->map(fn ($v) => (float) $v)->all());
-
-        return $window->sortBy(function (EmployeeWorkLocationTrack $point) use ($latitude, $longitude): float {
-            return $this->distanceCoordinates((float) $point->latitude, (float) $point->longitude, $latitude, $longitude);
-        })->first();
+        return $window->sortBy(fn (EmployeeWorkLocationTrack $point): float =>
+            $this->distanceCoordinates((float) $point->latitude, (float) $point->longitude, $latitude, $longitude)
+        )->first();
     }
 
     private function removeTriangleNoise(Collection $points): Collection
@@ -108,11 +125,9 @@ class WorkTrackingRouteFilter
             $before = $clean[array_key_last($clean)];
             $current = $items[$i];
             $after = $items[$i + 1];
-            if ($this->distanceMeters($before, $current) > 100
-                && $this->distanceMeters($current, $after) > 100
-                && $this->distanceMeters($before, $after) < 80) {
-                continue;
-            }
+            if ($this->distanceMeters($before, $current) > 150
+                && $this->distanceMeters($current, $after) > 150
+                && $this->distanceMeters($before, $after) < 80) continue;
             $clean[] = $current;
         }
         $clean[] = $items[array_key_last($items)];
